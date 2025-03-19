@@ -120,7 +120,6 @@ The application includes several API endpoints:
 - `/api/auth/validate-address` - Verify if a wallet address is allowed
 - `/api/wallet` - Authenticate with wallet signature
 - `/api/wallet/verify` - Verify JWT token
-- `/api/admin/users` - Admin user management
 
 ## Development Workflow
 
