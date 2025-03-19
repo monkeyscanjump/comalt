@@ -1,19 +1,27 @@
 /**
- * Whitelist configuration
- * This uses server-side API calls to check whitelist status securely
+ * Whitelist configuration with environment detection
+ * Handles both client and server environments efficiently
  */
 
-// Cache for public mode status
+// Cache settings
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+// Cache storage
 let publicModeCache: { value: boolean | null; timestamp: number } = {
   value: null,
   timestamp: 0
 };
-
-// Cache for address validation results
 const addressValidationCache = new Map<string, { isAllowed: boolean; timestamp: number }>();
 
-// Cache TTL in milliseconds (5 minutes)
-const CACHE_TTL = 5 * 60 * 1000;
+// Request deduplication
+let currentCheckRequest: Promise<boolean> | null = null;
+const currentAddressRequests = new Map<string, Promise<boolean>>();
+
+// Environment detection
+const isServer = typeof window === 'undefined';
+
+// Direct server-side implementation (avoids API calls on server)
+import * as serverWhitelist from '@/lib/whitelist-server';
 
 /**
  * Check if any addresses are configured in the whitelist
@@ -26,26 +34,52 @@ export async function hasWhitelistedAddressesAsync(): Promise<boolean> {
       return !publicModeCache.value;
     }
 
-    const response = await fetch('/api/auth/check-mode/');
-    if (!response.ok) {
-      console.error('Error checking whitelist mode:', await response.text());
-      throw new Error('Failed to check whitelist mode');
+    // If running on server, use direct implementation
+    if (isServer) {
+      const isPublic = serverWhitelist.isPublicMode();
+      publicModeCache = {
+        value: isPublic,
+        timestamp: now
+      };
+      return !isPublic;
     }
 
-    const data = await response.json();
-    console.log('Public mode check response:', data);
+    // On client, use API with request deduplication
+    if (currentCheckRequest) {
+      return currentCheckRequest;
+    }
 
-    // Update cache
-    publicModeCache = {
-      value: data.isPublicMode,
-      timestamp: now
-    };
+    // Create a new request and store the promise
+    currentCheckRequest = fetch('/api/auth/check-mode')
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Failed to check whitelist mode');
+        }
+        return response.json();
+      })
+      .then(data => {
+        // Update cache
+        publicModeCache = {
+          value: data.isPublicMode,
+          timestamp: Date.now()
+        };
+        return !data.isPublicMode;
+      })
+      .catch(error => {
+        console.error('Error checking whitelist mode:', error);
+        return true; // Default to restricted mode
+      })
+      .finally(() => {
+        // Clear the current request after a short delay
+        setTimeout(() => {
+          currentCheckRequest = null;
+        }, 50);
+      });
 
-    return !data.isPublicMode;
+    return currentCheckRequest;
   } catch (error) {
-    console.error('Error checking whitelist mode:', error);
-    // Assume restricted mode by default for safety
-    return true;
+    console.error('Error in hasWhitelistedAddressesAsync:', error);
+    return true; // Default to restricted mode
   }
 }
 
@@ -53,13 +87,23 @@ export async function hasWhitelistedAddressesAsync(): Promise<boolean> {
  * Synchronous version that uses cached result
  */
 export function hasWhitelistedAddresses(): boolean {
-  // Use cached value if available and not expired
+  // Check cache first
   const now = Date.now();
   if (publicModeCache.value !== null && (now - publicModeCache.timestamp) < CACHE_TTL) {
     return !publicModeCache.value;
   }
 
-  // Trigger async check to update cache
+  // If on server, use direct implementation
+  if (isServer) {
+    const isPublic = serverWhitelist.isPublicMode();
+    publicModeCache = {
+      value: isPublic,
+      timestamp: now
+    };
+    return !isPublic;
+  }
+
+  // On client with no cache, trigger async update
   hasWhitelistedAddressesAsync().catch(console.error);
 
   // Default to restricted mode for safety if no cached data
@@ -86,30 +130,58 @@ export async function isAddressAllowedAsync(address: string | null | undefined):
       return true;
     }
 
-    const response = await fetch('/api/auth/validate-address/', {
+    // If running on server, use direct implementation
+    if (isServer) {
+      const isAllowed = serverWhitelist.isAddressAllowed(address);
+      addressValidationCache.set(address, {
+        isAllowed,
+        timestamp: now
+      });
+      return isAllowed;
+    }
+
+    // On client, use API with request deduplication
+    if (currentAddressRequests.has(address)) {
+      return currentAddressRequests.get(address)!;
+    }
+
+    // Create a new request and store the promise
+    const addressRequest = fetch('/api/auth/validate-address', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ address })
-    });
+    })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Failed to validate address');
+        }
+        return response.json();
+      })
+      .then(data => {
+        // Cache result
+        addressValidationCache.set(address, {
+          isAllowed: data.isAllowed,
+          timestamp: now
+        });
+        return data.isAllowed;
+      })
+      .catch(error => {
+        console.error('Error validating address:', error);
+        return false; // Default to not allowed for safety
+      })
+      .finally(() => {
+        // Remove from in-progress map after a short delay
+        setTimeout(() => {
+          currentAddressRequests.delete(address);
+        }, 50);
+      });
 
-    if (!response.ok) {
-      console.error('Error validating address:', await response.text());
-      throw new Error('Failed to validate address');
-    }
-
-    const data = await response.json();
-    console.log('Address validation response:', data);
-
-    // Cache result
-    addressValidationCache.set(address, {
-      isAllowed: data.isAllowed,
-      timestamp: now
-    });
-
-    return data.isAllowed;
+    // Store the promise
+    currentAddressRequests.set(address, addressRequest);
+    return addressRequest;
   } catch (error) {
-    console.error('Error validating address:', error);
-    return false; // Default to not allowed for safety
+    console.error('Error in isAddressAllowedAsync:', error);
+    return false;
   }
 }
 
@@ -121,19 +193,29 @@ export function isAddressAllowed(address: string | null | undefined): boolean {
 
   const now = Date.now();
 
-  // Use cached value if available and not expired
+  // Check cache first
   const cached = addressValidationCache.get(address);
   if (cached && (now - cached.timestamp) < CACHE_TTL) {
     return cached.isAllowed;
   }
 
-  // If we have a definitive public mode cache and it's true, all addresses are allowed
+  // If we have public mode cached as true, all addresses are allowed
   if (publicModeCache.value === true && (now - publicModeCache.timestamp) < CACHE_TTL) {
     addressValidationCache.set(address, { isAllowed: true, timestamp: now });
     return true;
   }
 
-  // Trigger async check to update cache
+  // If on server, use direct implementation
+  if (isServer) {
+    const isAllowed = serverWhitelist.isAddressAllowed(address);
+    addressValidationCache.set(address, {
+      isAllowed,
+      timestamp: now
+    });
+    return isAllowed;
+  }
+
+  // On client with no cache, trigger async update
   isAddressAllowedAsync(address).catch(console.error);
 
   // Default to not allowed if we have no cached data yet
