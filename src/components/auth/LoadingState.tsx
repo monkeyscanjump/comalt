@@ -1,0 +1,20 @@
+import React from 'react';
+import styles from './AuthComponents.module.css';
+
+interface LoadingStateProps {
+  message?: string;
+  showSpinner?: boolean;
+}
+
+export function LoadingState({ message = '', showSpinner = true }: LoadingStateProps) {
+  return (
+    <div className={styles.loadingContainer}>
+      {showSpinner && (
+        <div className={styles.loadingSpinner}>
+          <div className="spinner"></div>
+        </div>
+      )}
+      {message && <p>{message}</p>}
+    </div>
+  );
+}

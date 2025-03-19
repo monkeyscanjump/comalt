@@ -1,0 +1,214 @@
+.debugContainer {
+  position: fixed;
+  z-index: 1000;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-md);
+  box-shadow: var(--shadow-md);
+  box-sizing: border-box;
+  user-select: none;
+  transition: opacity 0.2s ease;
+  will-change: transform;
+  width: 320px;
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow: auto;
+}
+
+.debugDragging {
+  cursor: grabbing !important;
+  opacity: 0.8;
+  transition: none !important;
+}
+
+.debugNormal {
+  cursor: grab;
+  opacity: 1;
+}
+
+.debugExpandedContent {
+  padding: 0;
+  font-size: 0.75rem;
+  overflow: auto;
+}
+
+.debugContent {
+  padding: var(--space-md);
+  overflow: auto;
+}
+
+.debugHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-sm) var(--space-md);
+  background-color: var(--color-background);
+  border-bottom: 1px solid var(--color-border);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.debugHeaderGrip {
+  width: 20px;
+  height: 10px;
+  background-image: repeating-linear-gradient(
+    90deg,
+    var(--color-text-secondary),
+    var(--color-text-secondary) 2px,
+    transparent 2px,
+    transparent 4px
+  );
+  opacity: 0.5;
+  border-radius: 2px;
+  margin-right: var(--space-sm);
+}
+
+.debugTitle {
+  margin: 0;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.875rem;
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+.collapseButton {
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-sm);
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+  margin-left: var(--space-sm);
+  color: var(--color-text-secondary);
+}
+
+.collapseButton:hover {
+  background: var(--color-border);
+}
+
+.debugRow {
+  margin-bottom: var(--space-xs);
+  word-break: break-word;
+  line-height: 1.4;
+}
+
+.refreshButton {
+  padding: var(--space-xs) var(--space-sm);
+  font-size: 0.6875rem;
+  cursor: pointer;
+  background-color: var(--color-success);
+  color: white;
+  border: none;
+  border-radius: var(--border-radius-sm);
+  margin-top: var(--space-sm);
+  display: inline-block;
+}
+
+.errorMessage {
+  color: var(--color-error);
+  margin-top: var(--space-sm);
+  padding: var(--space-xs);
+  background: rgba(239, 68, 68, 0.08); /* Using direct rgba for better compatibility */
+  border: 1px solid var(--color-error);
+  border-radius: var(--border-radius-sm);
+}
+
+.timestamp {
+  margin-top: var(--space-sm);
+  font-size: 0.625rem;
+  color: var(--color-text-secondary);
+}
+
+/* Collapsed styles */
+.horizontalCollapsed {
+  width: 20px !important;
+  height: 60px !important;
+}
+
+.verticalCollapsed {
+  width: 60px !important;
+  height: 20px !important;
+}
+
+.collapsedIndicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  width: 100%;
+  position: relative;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.collapsedIndicator:hover {
+  background-color: var(--color-background);
+}
+
+.expandIcon {
+  font-size: 1rem;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+/* Edge styles */
+.leftEdge {
+  border-right: 2px solid var(--color-text);
+  border-left: none;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.rightEdge {
+  border-left: 2px solid var(--color-text);
+  border-right: none;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.topEdge {
+  border-bottom: 2px solid var(--color-text);
+  border-top: none;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+.bottomEdge {
+  border-top: 2px solid var(--color-text);
+  border-bottom: none;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+  .debugContent {
+    padding: var(--space-sm);
+  }
+
+  .debugHeader {
+    padding: var(--space-xs) var(--space-sm);
+  }
+
+  .horizontalCollapsed {
+    height: 50px !important;
+  }
+
+  .verticalCollapsed {
+    width: 50px !important;
+  }
+}

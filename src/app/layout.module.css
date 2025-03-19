@@ -1,0 +1,98 @@
+/* Layout container - add this to the outermost div in RootLayout */
+.layoutContainer {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  width: 100%;
+}
+
+.header {
+  position: static;
+  width: 100%;
+  padding: var(--space-md);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 10;
+}
+
+.headerLogo {
+  font-size: 1.25rem;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.headerLogo img {
+  height: 1.75rem;
+}
+
+.headerNav {
+  display: flex;
+  gap: var(--space-md);
+  align-items: center;
+}
+
+/* Main content area grows to fill available space */
+.main {
+  flex: 1 1 auto; /* Grows and shrinks, with auto base size */
+  width: 100%;
+  padding: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.pageTitle {
+  font-size: 1.75rem;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+  margin-bottom: var(--space-lg);
+}
+
+.contentSection {
+  background: var(--color-surface);
+  border-radius: var(--border-radius-lg);
+  padding: var(--space-lg);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: var(--space-lg);
+}
+
+.footer {
+  position: static;
+  width: 100%;
+  padding: var(--space-md);
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  margin-top: auto;
+}
+
+.footerLinks {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-md);
+  margin-bottom: var(--space-sm);
+}
+
+@media (max-width: 768px) {
+  .main {
+    padding: var(--space-md);
+  }
+
+  .headerNav {
+    gap: var(--space-sm);
+  }
+
+  .contentSection {
+    padding: var(--space-md);
+  }
+}
