@@ -1,178 +1,74 @@
-.wallet-connector {
-  display: flex;
-  align-items: center;
-  position: relative;
-  transition: opacity 0.2s ease-in-out;
-}
-
-.wallet-button {
-  padding: 8px 16px;
-  border: none;
-  border-radius: 4px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.2s, opacity 0.2s;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 140px; /* Prevent size changes during state transitions */
-}
+/* Update these styles to use CSS variables */
 
 .wallet-button-connect {
-  background-color: #4CAF50;
-  color: white;
+  background-color: var(--color-success);
+  color: var(--color-surface-dark);
 }
 
 .wallet-button-connect:hover {
-  background-color: #45a049;
+  background-color: var(--color-success-dark);
 }
 
 .wallet-button-connected {
-  background-color: #2196F3;
-  color: white;
+  background-color: var(--color-primary);
+  color: var(--color-surface-dark);
   padding: 8px 10px 8px 16px;
 }
 
 .wallet-button-connected:hover {
-  background-color: #0b7dda;
+  background-color: var(--color-primary-dark);
 }
 
 .wallet-button-error {
-  background-color: #f44336;
-  color: white;
+  background-color: var(--color-error);
+  color: var(--color-surface-dark);
 }
 
-.wallet-name {
-  font-weight: 500;
-  max-width: 100px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Updated styles for engraved text effect */
+/* Update address style for better theme compatibility */
 .wallet-address {
-  font-family: monospace;
-  color: rgba(0, 0, 0, 0.7);  /* Semi-transparent black */
-  text-shadow: 0px 1px 0px rgba(255, 255, 255, 0.1);  /* Light shadow for engraved effect */
+  font-family: var(--font-family-mono);
+  color: var(--color-surface-dark);
   position: relative;
   opacity: 0.9;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 
-/* Updated styles for engraved divider */
+/* Updated styles for divider */
 .wallet-divider {
   margin: 0 6px;
-  color: rgba(0, 0, 0, 0.5);  /* Darker semi-transparent black */
-  text-shadow: 0px 1px 1px rgba(255, 255, 255, 0.1); /* Light shadow for engraved effect */
+  color: var(--color-surface-dark);
   opacity: 0.8;
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
 }
 
-/* Updated styles for engraved disconnect icon */
+/* Updated styles for disconnect icon */
 .disconnect-icon {
   margin-left: 8px;
-  color: rgba(0, 0, 0, 0.7);  /* Darker semi-transparent black */
-  text-shadow: 0px 1px 1px rgba(255, 255, 255, 0.1); /* Light shadow for engraved effect */
-  font-size: 16px;
+  color: var(--color-surface-dark);
+  font-size: var(--font-size-md);
   line-height: 1;
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
 }
 
-.connect-loading {
-  opacity: 0.7;
-}
-
-/* Loading animation */
-@keyframes pulse {
-  0% { opacity: 1; }
-  50% { opacity: 0.7; }
-  100% { opacity: 1; }
-}
-
-.wallet-loading {
-  animation: pulse 1.5s infinite ease-in-out;
-}
-
-/* Modal styles for account selector */
-.account-selector-backdrop {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.7);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 9999;
-}
-
+/* Account selector modal for theme compatibility */
 .account-selector-modal {
-  background-color: white;
-  padding: 24px;
-  border-radius: 8px;
-  width: 80%;
-  max-width: 480px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
 }
 
 .account-selector-title {
-  margin-top: 0;
-  margin-bottom: 16px;
-  font-size: 20px;
-  color: #333;
-}
-
-.accounts-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  max-height: 300px;
-  overflow-y: auto;
+  color: var(--color-text);
 }
 
 .account-item {
-  padding: 12px 16px;
-  margin: 6px 0;
-  border: 1px solid #eee;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background-color 0.2s, border-color 0.2s;
+  border: 1px solid var(--color-border);
 }
 
 .account-item:hover {
-  background-color: #f5f5f5;
-  border-color: #ddd;
-}
-
-.account-name {
-  font-weight: 500;
-  margin-bottom: 4px;
+  background-color: var(--color-bg-hover);
 }
 
 .account-address {
-  font-size: 12px;
-  color: #666;
-  font-family: monospace;
-}
-
-.modal-actions {
-  margin-top: 20px;
-  text-align: right;
-}
-
-.cancel-button {
-  padding: 8px 16px;
-  background-color: #f44336;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.cancel-button:hover {
-  background-color: #e53935;
+  color: var(--color-text-secondary);
 }

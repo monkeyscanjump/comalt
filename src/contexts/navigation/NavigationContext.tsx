@@ -1,7 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { IconType } from 'react-icons';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
 import { discoverPages } from '@/utils/pageDiscovery';
 import { RouteInfo } from '@/config/routes';
@@ -29,11 +28,9 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
   // Discover all pages at startup (only if we don't have routes yet)
   useEffect(() => {
     if (globalRoutes.length === 0) {
-      console.log('Discovering pages...');
       const discoveredPages = discoverPages();
       setRoutes(discoveredPages);
       globalRoutes = discoveredPages;
-      console.log('Discovered pages:', discoveredPages);
     }
   }, []);
 
@@ -47,38 +44,47 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
   };
 
   // Update route information
-  const updateRouteInfo = (routeInfo: Partial<RouteInfo> & { path: string }): void => {
-    console.log(`Route updated: ${routeInfo.path} - ${routeInfo.title}`);
+  const updateRouteInfo = useCallback((routeInfo: Partial<RouteInfo> & { path: string }) => {
 
     setRoutes(prevRoutes => {
-      // Find existing route or use new one
-      const existingRouteIndex = prevRoutes.findIndex(r => r.path === routeInfo.path);
+      // Check if this route already exists
+      const existingIndex = prevRoutes.findIndex(r => r.path === routeInfo.path);
 
-      let newRoutes;
-      if (existingRouteIndex >= 0) {
+      if (existingIndex >= 0) {
+        // Skip update if nothing changed to prevent infinite loops
+        const existingRoute = prevRoutes[existingIndex];
+        const hasChanges =
+          (routeInfo.title !== undefined && routeInfo.title !== existingRoute.title) ||
+          (routeInfo.icon !== undefined && routeInfo.icon !== existingRoute.icon) ||
+          (routeInfo.order !== undefined && routeInfo.order !== existingRoute.order) ||
+          (routeInfo.showInNav !== undefined && routeInfo.showInNav !== existingRoute.showInNav);
+
+        if (!hasChanges) {
+          return prevRoutes; // Return previous state to avoid re-render
+        }
+
         // Update existing route
-        newRoutes = [...prevRoutes];
-        newRoutes[existingRouteIndex] = {
-          ...newRoutes[existingRouteIndex],
+        const newRoutes = [...prevRoutes];
+        newRoutes[existingIndex] = {
+          ...newRoutes[existingIndex],
           ...routeInfo
         };
-      } else {
-        // Add new route with defaults
-        const newRoute: RouteInfo = {
-          path: routeInfo.path,
-          title: routeInfo.title || routeInfo.path.split('/').pop() || 'Page',
-          icon: routeInfo.icon || null as unknown as IconType,
-          order: routeInfo.order || 100,
-          showInNav: routeInfo.showInNav !== undefined ? routeInfo.showInNav : true,
-        };
-        newRoutes = [...prevRoutes, newRoute].sort((a, b) => a.order - b.order);
+        return newRoutes;
       }
 
-      // Update global routes
-      globalRoutes = newRoutes;
-      return newRoutes;
+      // For a new route, we need to ensure all required fields are present
+      const completeRouteInfo: RouteInfo = {
+        path: routeInfo.path,
+        title: routeInfo.title || routeInfo.path.split('/').pop() || 'Page',
+        icon: routeInfo.icon || null as any, // Use appropriate default for your app
+        order: routeInfo.order || 100,
+        showInNav: routeInfo.showInNav ?? true
+      };
+
+      // Add new route
+      return [...prevRoutes, completeRouteInfo].sort((a, b) => a.order - b.order);
     });
-  };
+  }, []);
 
   return (
     <NavigationContext.Provider

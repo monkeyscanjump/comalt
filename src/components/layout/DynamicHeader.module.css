@@ -1,133 +1,103 @@
-.header {
-  padding: var(--space-md);
+.headerContainer {
+  width: 100%;
+  height: 60px; /* Fixed header container height */
   background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
   box-shadow: var(--shadow-sm);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  z-index: 10;
+  z-index: var(--z-index-fixed);
+  padding: 0 var(--space-md); /* Remove vertical padding, keep horizontal */
+}
+
+.header {
+  width: 100%;
+  height: 100%; /* Make header take full height of container */
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .headerLeft {
   display: flex;
   align-items: center;
+  height: 100%; /* Full height */
 }
 
 .headerLogo {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-primary);
   display: flex;
   align-items: center;
+  gap: var(--space-sm);
   text-decoration: none;
-  transition: opacity 0.2s;
+  transition: opacity var(--transition-fast);
+  height: 100%; /* Full height */
 }
 
-.headerLogoButton {
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  transition: opacity 0.2s;
-}
-
-.headerLogoButton:hover {
+.headerLogo:hover {
   opacity: 0.9;
-}
-
-.navigation {
-  flex: 1;
-  margin: 0 var(--space-lg);
-}
-
-.navList {
-  display: flex;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  gap: var(--space-md);
-}
-
-.navItem {
-  position: relative;
-}
-
-.navLink {
-  display: flex;
-  align-items: center;
-  padding: var(--space-sm) var(--space-md);
-  color: var(--color-text);
   text-decoration: none;
-  font-weight: var(--font-weight-medium);
-  border-radius: var(--border-radius-md);
-  transition: background-color 0.2s, color 0.2s;
-  cursor: pointer;
 }
 
-.navButton {
-  display: flex;
-  align-items: center;
-  padding: var(--space-sm) var(--space-md);
-  color: var(--color-text);
-  text-decoration: none;
-  font-weight: var(--font-weight-medium);
-  border-radius: var(--border-radius-md);
-  transition: background-color 0.2s, color 0.2s;
-  background: none;
-  border: none;
-  width: 100%;
-  cursor: pointer;
-  text-align: left;
-}
-
-.navLink:hover,
-.navButton:hover {
-  background-color: rgba(0, 0, 0, 0.05);
-  text-decoration: none;
-  color: var(--color-primary);
-}
-
-.navLink.active,
-.navButton.active {
-  color: var(--color-primary);
-  background-color: rgba(37, 99, 235, 0.08);
-}
-
-.navIcon {
-  margin-right: var(--space-sm);
-  font-size: 1.25rem;
+.headerLogo img {
+  height: 23px; /* Fixed height for logo */
 }
 
 .headerRight {
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  gap: var(--space-md);
+  height: 100%; /* Full height */
 }
 
+.themeToggleHeader {
+  margin-right: 0;
+  height: 23px; /* Match the fixed 23px height */
+}
+
+/* Media queries for responsive design */
 @media (max-width: 768px) {
+  .headerContainer {
+    height: auto; /* Allow header to expand on mobile */
+    padding: var(--space-sm) var(--space-sm);
+  }
+
   .header {
-    flex-direction: column;
-    padding: var(--space-sm);
+    flex-wrap: wrap; /* Allow wrapping instead of column */
+    row-gap: var(--space-sm);
   }
 
   .headerLeft {
-    margin-bottom: var(--space-sm);
-  }
-
-  .navigation {
-    margin: var(--space-sm) 0;
-    width: 100%;
-    overflow-x: auto;
-  }
-
-  .navList {
-    flex-wrap: nowrap;
-    min-width: min-content;
+    flex: 0 0 auto; /* Don't grow or shrink */
+    margin-right: var(--space-md);
   }
 
   .headerRight {
-    margin-top: var(--space-sm);
-    width: 100%;
-    justify-content: center;
+    flex: 0 0 auto; /* Don't grow or shrink */
+  }
+}
+
+/* For even smaller screens */
+@media (max-width: 480px) {
+  .headerContainer {
+    padding: var(--space-xs) var(--space-xs);
+  }
+
+  .header {
+    justify-content: space-between;
+  }
+
+  .headerLogo {
+    font-size: var(--font-size-lg); /* Slightly smaller on mobile */
+  }
+
+  .headerRight {
+    gap: var(--space-xs);
   }
 }

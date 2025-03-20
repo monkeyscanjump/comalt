@@ -1,68 +1,45 @@
 "use client";
 
-import React from 'react';
-import Image from 'next/image';
-import { useNavigation } from '@/contexts/navigation/NavigationContext';
+import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { useAuth } from '@/contexts/auth';
-import WalletConnector from '@/components/wallet/WalletConnector';
+import { MainNavigation } from './MainNavigation';
+import ThemeToggle from '@/components/ThemeToggle';
 import styles from './DynamicHeader.module.css';
 
+// Import WalletConnector with SSR disabled to prevent hydration errors
+const WalletConnector = dynamic(
+  () => import('@/components/wallet/WalletConnector').then(mod => mod.default || mod),
+  { ssr: false }
+);
+
 export function DynamicHeader() {
-  const { routes, isRouteActive } = useNavigation();
+  const [isClient, setIsClient] = useState(false);
   const { isPublicMode } = useAuth();
 
-  // Filter routes to only show those with showInNav=true
-  const navItems = routes.filter(route => route.showInNav);
+  const appName = process.env.NEXT_PUBLIC_APP_NAME || 'comalt';
 
-  // Use window.location directly - this bypasses ALL interference
-  function forceNavigate(path: string) {
-    console.log(`Forcing navigation to: ${path}`);
-    window.location.href = path;
-  }
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   return (
-    <header className={styles.header}>
-      <div className={styles.headerLeft}>
-        {/* Use button instead of a tag for more reliable behavior */}
-        <button
-          className={styles.headerLogoButton}
-          onClick={() => forceNavigate('/')}
-        >
-          <Image
-            src="/logo.svg"
-            alt="comalt"
-            width={180}
-            height={40}
-            priority
-          />
-        </button>
-      </div>
+    <header className={styles.headerContainer}>
+      <div className={styles.header}>
+        <div className={styles.headerLeft}>
+          <Link href="/" className={styles.headerLogo}>{appName}</Link>
+        </div>
 
-      <nav className={styles.navigation}>
-        <ul className={styles.navList}>
-          {navItems.map((route) => {
-            const IconComponent = route.icon;
-            const isActive = isRouteActive(route.path);
+        <MainNavigation />
 
-            return (
-              <li key={route.path} className={styles.navItem}>
-                {/* Use button instead of a tag for more reliable behavior */}
-                <button
-                  className={`${styles.navButton} ${isActive ? styles.active : ''}`}
-                  onClick={() => forceNavigate(route.path)}
-                >
-                  {IconComponent && <IconComponent className={styles.navIcon} />}
-                  <span>{route.title}</span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      </nav>
-
-      <div className={styles.headerRight}>
-        {!isPublicMode && <WalletConnector />}
+        <div className={styles.headerRight}>
+          <ThemeToggle className={styles.themeToggleHeader} />
+          {isClient && !isPublicMode && <WalletConnector />}
+        </div>
       </div>
     </header>
   );
 }
+
+export default DynamicHeader;

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useNavigation } from '@/contexts/navigation/NavigationContext';
 import { IconType } from 'react-icons';
 import { usePathname } from 'next/navigation';
@@ -23,18 +23,24 @@ export function PageWrapper({
   const { updateRouteInfo } = useNavigation();
   const pathname = usePathname() || '/';
 
-  // PageWrapper now enhances prediscovered routes with additional metadata
-  useEffect(() => {
-    updateRouteInfo({
-      path: pathname,
-      title,
-      icon,
-      showInNav,
-      order
-    });
+  // Use a ref to track first render
+  const isFirstRender = useRef(true);
 
-    console.log(`Page metadata enhanced: ${title} at path: ${pathname}`);
-  }, [title, icon, pathname, showInNav, order, updateRouteInfo]);
+  // This effect should only run once per mount
+  useEffect(() => {
+    // Only update route info on first render
+    if (isFirstRender.current) {
+      updateRouteInfo({
+        path: pathname,
+        title,
+        icon,
+        showInNav,
+        order
+      });
+
+      isFirstRender.current = false;
+    }
+  }, [pathname, title, icon, showInNav, order, updateRouteInfo]);
 
   return <>{children}</>;
 }

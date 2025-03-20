@@ -6,15 +6,15 @@ interface LoadingStateProps {
   showSpinner?: boolean;
 }
 
-export function LoadingState({ message = '', showSpinner = true }: LoadingStateProps) {
+export function LoadingState({ message = '...', showSpinner = true }: LoadingStateProps) {
   return (
     <div className={styles.loadingContainer}>
       {showSpinner && (
         <div className={styles.loadingSpinner}>
-          <div className="spinner"></div>
+          <div className={styles.spinner}></div>
         </div>
       )}
-      {message && <p>{message}</p>}
+      {message && <p className={styles.loadingText}>{message}</p>}
     </div>
   );
 }

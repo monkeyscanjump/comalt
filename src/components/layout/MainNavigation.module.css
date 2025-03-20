@@ -1,0 +1,97 @@
+.navContainer {
+  flex: 1;
+  margin: 0 var(--space-md);
+  position: relative;
+  height: 100%; /* Ensure full height */
+}
+
+.tabsContainer {
+  display: flex;
+  position: relative;
+  height: 100%; /* Full height */
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  padding: 0 var(--space-md); /* Remove vertical padding */
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-sm);
+  position: relative;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+  z-index: 2;
+  height: 100%; /* Ensure full height */
+}
+
+.tab:hover {
+  color: var(--color-primary);
+  background-color: var(--color-bg-hover);
+  text-decoration: none;
+}
+
+.activeTab {
+  color: var(--color-primary);
+}
+
+.tabIcon {
+  margin-right: var(--space-xs);
+  display: flex;
+  align-items: center;
+  font-size: var(--font-size-md);
+}
+
+.tabText {
+  white-space: nowrap;
+}
+
+/* Animated indicator for active tab */
+.activeIndicator {
+  position: absolute;
+  bottom: 0;
+  height: 3px;
+  background-color: var(--color-primary);
+  border-radius: var(--border-radius-xs) var(--border-radius-xs) 0 0;
+  transition: transform var(--transition-normal), width var(--transition-normal);
+  z-index: 1;
+}
+
+/* Media queries */
+@media (max-width: 768px) {
+  .navContainer {
+    flex: 1 1 100%; /* Take up full row width on mobile */
+    margin: 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    height: 40px; /* Fixed height for mobile */
+    order: 3; /* Place navigation below logo and wallet */
+  }
+
+  .tabsContainer {
+    min-width: min-content; /* Ensure tabs don't shrink too much */
+  }
+
+  .tab {
+    padding: 0 var(--space-sm); /* Slightly reduce padding on mobile */
+    height: 40px; /* Match container height */
+  }
+
+  /* Hide tab text on very small screens and just show icons */
+  @media (max-width: 480px) {
+    .tabText {
+      display: none; /* Hide text on very small screens */
+    }
+
+    .tabIcon {
+      margin-right: 0; /* No margin needed when no text */
+      font-size: var(--font-size-lg); /* Make icons slightly larger */
+    }
+
+    .tab {
+      padding: 0 var(--space-xs); /* Reduce padding further */
+      justify-content: center; /* Center icons */
+    }
+  }
+}

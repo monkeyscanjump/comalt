@@ -8,82 +8,162 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1000;
+  z-index: var(--z-index-modal);
 }
 
 .modal {
-  background-color: white;
-  border-radius: 8px;
-  padding: 24px;
+  background-color: var(--color-surface);
+  border-radius: var(--border-radius-lg);
+  padding: var(--space-lg);
   width: 90%;
   max-width: 500px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--color-border);
 }
 
 .title {
   margin-top: 0;
-  margin-bottom: 16px;
-  font-size: 20px;
-  color: #333;
+  margin-bottom: var(--space-md);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
 }
 
 .accountsList {
   list-style: none;
   padding: 0;
-  margin: 0 0 20px 0;
+  margin: 0 0 var(--space-lg) 0;
   max-height: 300px;
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-text-tertiary) transparent;
+}
+
+.accountsList::-webkit-scrollbar {
+  width: 6px;
+}
+
+.accountsList::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.accountsList::-webkit-scrollbar-thumb {
+  background-color: var(--color-text-tertiary);
+  border-radius: var(--border-radius-full);
 }
 
 .accountItem {
-  padding: 12px 16px;
-  margin-bottom: 8px;
-  border: 1px solid #eee;
-  border-radius: 4px;
+  padding: var(--space-sm) var(--space-md);
+  margin-bottom: var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-md);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--transition-fast);
 }
 
 .accountItem:hover {
-  background-color: #f5f5f5;
-  border-color: #ddd;
+  background-color: var(--color-bg-hover);
+  border-color: var(--color-border-strong);
+}
+
+.accountItem.selected {
+  background-color: rgba(var(--color-primary-rgb), 0.1);
+  border-color: var(--color-primary);
 }
 
 .accountName {
-  font-weight: 500;
-  margin-bottom: 4px;
+  font-weight: var(--font-weight-medium);
+  margin-bottom: var(--space-xs);
+  color: var(--color-text);
 }
 
 .accountAddress {
-  font-family: monospace;
-  font-size: 12px;
-  color: #666;
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
   word-break: break-all;
 }
 
 .actions {
   display: flex;
   justify-content: flex-end;
+  gap: var(--space-sm);
 }
 
 .cancelButton {
-  padding: 8px 16px;
-  background-color: #f44336;
+  padding: var(--space-sm) var(--space-md);
+  background-color: var(--color-error);
   color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--border-radius-md);
   cursor: pointer;
-  font-size: 14px;
+  font-size: var(--font-size-sm);
+  transition: background-color var(--transition-fast);
 }
 
 .cancelButton:hover {
-  background-color: #d32f2f;
+  background-color: var(--color-error-dark);
+}
+
+.cancelButton:active {
+  transform: translateY(1px);
+}
+
+.connectButton {
+  padding: var(--space-sm) var(--space-md);
+  background-color: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: var(--border-radius-md);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  transition: background-color var(--transition-fast);
+}
+
+.connectButton:hover {
+  background-color: var(--color-primary-dark);
+}
+
+.connectButton:active {
+  transform: translateY(1px);
+}
+
+.connectButton:disabled {
+  background-color: var(--color-text-tertiary);
+  cursor: not-allowed;
 }
 
 .noAccounts {
-  padding: 12px;
-  background-color: #f5f5f5;
-  border-radius: 4px;
-  color: #666;
+  padding: var(--space-md);
+  background-color: var(--color-surface-light);
+  border-radius: var(--border-radius-md);
+  color: var(--color-text-secondary);
   text-align: center;
+  border: 1px solid var(--color-border);
+}
+
+/* Responsive adjustments */
+@media (max-width: 480px) {
+  .modal {
+    padding: var(--space-md);
+    width: 95%;
+  }
+
+  .title {
+    font-size: var(--font-size-md);
+  }
+
+  .accountItem {
+    padding: var(--space-xs) var(--space-sm);
+  }
+
+  .actions {
+    flex-direction: column-reverse;
+    gap: var(--space-xs);
+  }
+
+  .cancelButton, .connectButton {
+    width: 100%;
+    padding: var(--space-xs) var(--space-sm);
+  }
 }

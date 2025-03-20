@@ -3,15 +3,20 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import AuthContext from './AuthContext';
 import { WalletService } from './WalletService';
+import { config } from '@/config';
 import {
   hasWhitelistedAddresses,
   hasWhitelistedAddressesAsync,
-  isAddressAllowed as isAddressInWhitelist,
   isAddressAllowedAsync
 } from '@/config/whitelist';
 import type { InjectedAccountWithMeta } from '@polkadot/extension-inject/types';
 import type { User } from '@/types/user';
 
+/**
+ * AuthProvider manages authentication state for the application.
+ * Handles wallet connections, signatures, and auth tokens.
+ * Supports both public mode and restricted access mode.
+ */
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // Account and wallet states
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
@@ -40,6 +45,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // Calculate derived states
   const isWalletConnected = !!selectedAccount || !!walletAddress;
 
+  // Clear authentication state when switching to public mode
+  useEffect(() => {
+    if (isPublicMode && (isAuthenticated || isWalletConnected)) {
+      // Clear auth state when transitioning to public mode for consistency
+      logout();
+    }
+  }, [isPublicMode, isAuthenticated, isWalletConnected]);
+
   // Initialize auth state
   useEffect(() => {
     const initAuth = async () => {
@@ -47,22 +60,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         // First check if we're in public mode - this will populate the cache
         await hasWhitelistedAddressesAsync();
 
+        // If in public mode, don't restore auth state
+        if (isPublicMode) {
+          setIsLoading(false);
+          return;
+        }
+
         // Restore connection from localStorage if available
-        const storedAddress = localStorage.getItem('wallet-address');
-        const storedToken = localStorage.getItem('auth-token');
+        const storedAddress = localStorage.getItem(config.auth.walletAddress);
+        const storedToken = localStorage.getItem(config.auth.tokenName);
 
         if (storedAddress) {
           setWalletAddress(storedAddress);
 
           // Check if this specific address is allowed by the whitelist using the async API
           const addressIsAllowed = await isAddressAllowedAsync(storedAddress);
-          console.log('Restored address allowed:', addressIsAllowed, storedAddress);
 
           // If address is not allowed, clear storage and don't proceed with auth
           if (!addressIsAllowed) {
-            console.warn('Stored wallet address is not in whitelist, clearing data');
-            localStorage.removeItem('wallet-address');
-            localStorage.removeItem('auth-token');
+            localStorage.removeItem(config.auth.walletAddress);
+            localStorage.removeItem(config.auth.tokenName);
             localStorage.removeItem('user-data');
             setWalletAddress(null);
             setIsLoading(false);
@@ -85,7 +102,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               }
             }
           } catch (err) {
-            console.warn('Failed to restore wallet connection:', err);
+            // Failed to restore wallet connection, continue with basic state
           }
 
           // Restore auth state only if address is allowed
@@ -100,21 +117,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 setUser(JSON.parse(userData));
               }
             } catch (e) {
-              console.warn('Failed to restore user data:', e);
+              // Failed to restore user data, continue with basic state
             }
           }
         }
       } catch (err) {
-        console.error('Error initializing auth:', err);
+        // Error initializing auth, continue with default state
       } finally {
         setIsLoading(false);
       }
     };
 
     initAuth();
-  }, []);
+  }, [isPublicMode]);
 
-  // Connect wallet
+  /**
+   * Connect to wallet extension and get available accounts
+   */
   const connect = async (): Promise<boolean> => {
     setIsConnecting(true);
     setError(null);
@@ -138,7 +157,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       return true;
     } catch (err) {
-      console.error('Wallet connection error:', err);
       setError(err instanceof Error ? err.message : 'Failed to connect wallet');
       return false;
     } finally {
@@ -146,25 +164,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  // Select account
+  /**
+   * Select an account from the wallet
+   */
   const selectAccount = async (account: InjectedAccountWithMeta): Promise<void> => {
-    console.log('Account selected:', account.address);
-
     // Update state with selected account
     setSelectedAccount(account);
     setWalletAddress(account.address);
     setShowAccountSelector(false);
 
     // Save to localStorage
-    localStorage.setItem('wallet-address', account.address);
+    localStorage.setItem(config.auth.walletAddress, account.address);
 
     try {
       // Check if the SPECIFIC account is allowed by the whitelist using the async API
       const addressIsAllowed = await isAddressAllowedAsync(account.address);
-      console.log('Address allowed:', addressIsAllowed);
       setIsAllowed(addressIsAllowed);
     } catch (error) {
-      console.error('Error checking whitelist:', error);
       setIsAllowed(false);
     }
 
@@ -172,17 +188,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setWasSignatureRejected(false);
   };
 
-  // Sign message
+  /**
+   * Sign a message with the selected account
+   */
   const signMessage = useCallback(async (message: string, accountOverride?: InjectedAccountWithMeta): Promise<string | null> => {
     const addressToUse = accountOverride?.address || selectedAccount?.address || walletAddress;
     if (!addressToUse) return null;
 
     try {
-      console.log('Signing message for address:', addressToUse);
       return await WalletService.signMessage(addressToUse, message);
     } catch (err) {
-      console.error('Signature error:', err);
-
       // Check if user rejected the signature
       const isRejection = err instanceof Error &&
         (err.message.toLowerCase().includes('reject') ||
@@ -191,7 +206,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
          err.message.toLowerCase().includes('user cancelled'));
 
       if (isRejection) {
-        console.log('Setting wasSignatureRejected to true');
         setWasSignatureRejected(true);
       }
 
@@ -199,7 +213,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [selectedAccount, walletAddress, setWasSignatureRejected]);
 
-  // Request signature for authentication
+  /**
+   * Request a signature for authentication
+   */
   const requestSignature = useCallback(async (address: string): Promise<boolean> => {
     if (!address) return false;
 
@@ -207,12 +223,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // Add critical whitelist check using the async API
       const addressIsAllowed = await isAddressAllowedAsync(address);
       if (!addressIsAllowed) {
-        console.error('Signature request blocked - address not in whitelist:', address);
         setError('This wallet address is not authorized');
         return false;
       }
 
-      console.log('Starting signature request for address:', address);
       setIsRequestingSignature(true);
       setWasSignatureRejected(false);
 
@@ -220,19 +234,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const message = `Sign this message to authenticate with comalt: ${Date.now()}`;
 
       // Get signature - this might throw if rejected
-      console.log('Requesting signature for message:', message);
       const signature = await signMessage(message);
 
       if (!signature) {
-        console.warn('No signature returned');
         return false;
       }
 
-      console.log('Signature received, authenticating...');
       // In a real app, you'd verify this signature on the server
       const token = 'auth-token-' + Date.now(); // Simplified token
       setToken(token);
-      localStorage.setItem('auth-token', token);
+      localStorage.setItem(config.auth.tokenName, token);
 
       // Set authenticated state
       setIsAuthenticated(true);
@@ -253,8 +264,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       return true;
     } catch (err) {
-      console.error('Signature request failed:', err);
-
       // Check if this was a rejection
       const isRejection = err instanceof Error &&
         (err.message.toLowerCase().includes('reject') ||
@@ -262,7 +271,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
          err.message.toLowerCase().includes('denied'));
 
       if (isRejection) {
-        console.log('Setting wasSignatureRejected to true');
         setWasSignatureRejected(true);
       } else {
         setError(err instanceof Error ? err.message : 'Failed to sign message');
@@ -283,7 +291,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setUser
   ]);
 
-  // Effect to auto-trigger signature request
+  /**
+   * Auto-trigger signature request when wallet is connected and allowed
+   */
   useEffect(() => {
     // Skip if still loading, already authenticated, requesting signature, or in public mode
     // Also skip if signature was previously rejected - don't auto-retry after rejection
@@ -293,14 +303,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     // If we have a connected wallet and it's allowed but not authenticated, request signature
     if (selectedAccount && isAllowed && !isAuthenticated) {
-      console.log('[AUTH] Auto-triggering signature request for connected wallet:', selectedAccount.address);
-
       // Short delay to ensure all state is properly updated
       const timer = setTimeout(async () => {
         try {
           await requestSignature(selectedAccount.address);
         } catch (err) {
-          console.error('Failed to auto-request signature:', err);
+          // Signature request failed silently
         }
       }, 300);
 
@@ -317,7 +325,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     requestSignature
   ]);
 
-  // Refresh auth token
+  /**
+   * Refresh authentication token
+   */
   const refreshAuthToken = async (): Promise<boolean> => {
     if (!isAuthenticated || !walletAddress) return false;
 
@@ -325,22 +335,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // Verify wallet is still allowed before refreshing token using the async API
       const addressIsAllowed = await isAddressAllowedAsync(walletAddress);
       if (!addressIsAllowed) {
-        console.error('Token refresh blocked - address not in whitelist:', walletAddress);
         logout(); // Force logout if address no longer allowed
         return false;
       }
 
       const newToken = 'refreshed-token-' + Date.now();
       setToken(newToken);
-      localStorage.setItem('auth-token', newToken);
+      localStorage.setItem(config.auth.tokenName, newToken);
       return true;
     } catch (err) {
-      console.error('Token refresh failed:', err);
       return false;
     }
   };
 
-  // Logout
+  /**
+   * Logout and clear all authentication state
+   */
   const logout = () => {
     setSelectedAccount(null);
     setWalletAddress(null);
@@ -351,12 +361,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setWasSignatureRejected(false);
 
     // Clear localStorage
-    localStorage.removeItem('wallet-address');
-    localStorage.removeItem('auth-token');
+    localStorage.removeItem(config.auth.walletAddress);
+    localStorage.removeItem(config.auth.tokenName);
     localStorage.removeItem('user-data');
   };
 
-  // Reset rejection state
+  /**
+   * Reset signature rejection state
+   */
   const resetRejectionState = () => {
     setWasSignatureRejected(false);
   };

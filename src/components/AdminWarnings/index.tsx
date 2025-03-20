@@ -43,9 +43,9 @@ const AdminWarnings: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false }) => 
   if (loading) return null;
   if (loading || (process.env.NODE_ENV !== 'development' && !isAdmin)) return null;
   return (
-    <div>
+    <div className={styles.warning}>
       {!hasWhitelist && (
-        <div className={styles.warning}>
+        <div>
           <h3 className={styles.header}>⚠️ Public Mode Active</h3>
           <p className={styles.paragraph}>
             No wallet addresses are configured in the whitelist. The application is running in public mode.
