@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import type { TokenPayload } from '@/types/auth';
+import type { TokenPayload } from '@/contexts/auth/AuthTypes';
 import { isAddressAllowed } from '@/config/whitelist';
 import prisma from '@/lib/prisma';
 

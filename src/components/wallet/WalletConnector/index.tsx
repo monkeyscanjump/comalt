@@ -27,11 +27,9 @@ const WalletConnector = () => {
   };
 
   // Extract display name and shortened address
-  const displayName = selectedAccount ?
-    (selectedAccount.meta?.name || 'Wallet') : '';
+  const displayName = selectedAccount ? (selectedAccount.meta?.name || 'Wallet') : '';
 
-  const shortAddress = selectedAccount ?
-    `...${selectedAccount.address.slice(-6)}` :
+  const shortAddress = selectedAccount ? `...${selectedAccount.address.slice(-6)}` :
     (walletAddress ? `...${walletAddress.slice(-6)}` : '');
 
   // Create the button class using CSS module styles
