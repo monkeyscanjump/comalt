@@ -34,6 +34,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [isAllowed, setIsAllowed] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [isCheckingAllowlist, setIsCheckingAllowlist] = useState(false);
 
   // Signature states
   const [wasSignatureRejected, setWasSignatureRejected] = useState(false);
@@ -72,6 +73,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
         if (storedAddress) {
           setWalletAddress(storedAddress);
+
+          // Set loading state for allowlist check
+          setIsCheckingAllowlist(true);
 
           // Check if this specific address is allowed by the whitelist using the async API
           const addressIsAllowed = await isAddressAllowedAsync(storedAddress);
@@ -177,11 +181,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     localStorage.setItem(config.auth.walletAddress, account.address);
 
     try {
+      // Set loading state for allowlist check
+      setIsCheckingAllowlist(true);
+
       // Check if the SPECIFIC account is allowed by the whitelist using the async API
       const addressIsAllowed = await isAddressAllowedAsync(account.address);
       setIsAllowed(addressIsAllowed);
     } catch (error) {
       setIsAllowed(false);
+    } finally {
+      setIsCheckingAllowlist(false);
     }
 
     // Reset signature rejection state when selecting a new account
@@ -220,6 +229,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     if (!address) return false;
 
     try {
+      // Set loading state for allowlist check
+    setIsCheckingAllowlist(true);
       // Add critical whitelist check using the async API
       const addressIsAllowed = await isAddressAllowedAsync(address);
       if (!addressIsAllowed) {
@@ -227,6 +238,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return false;
       }
 
+      setIsCheckingAllowlist(false);
       setIsRequestingSignature(true);
       setWasSignatureRejected(false);
 
@@ -409,7 +421,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         isAuthenticated,
         isLoading,
         isAllowed,
-        isConnecting
+        isConnecting,
+        isCheckingAllowlist
       }}
     >
       {children}

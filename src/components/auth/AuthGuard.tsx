@@ -26,7 +26,8 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     isWalletConnected,
     walletAddress,
     wasSignatureRejected,
-    isPublicMode
+    isPublicMode,
+    isCheckingAllowlist
   } = useAuth();
 
   const pathname = usePathname();
@@ -71,10 +72,11 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         authenticated: isAuthenticated,
         allowed: isAllowed,
         public: isPublicMode,
-        shouldShowContent
+        shouldShowContent,
+        isCheckingAllowlist
       });
     }
-  }, [isAuthenticated, isAllowed, isPublicMode, pathname, shouldShowContent]);
+  }, [isAuthenticated, isAllowed, isPublicMode, pathname, shouldShowContent, isCheckingAllowlist]);
 
   /**
    * During server-side rendering, we need to render a skeleton or loading state
@@ -101,6 +103,11 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   // Authentication flow for non-public mode
   if (!isWalletConnected) {
     return <ConnectWallet showTitle={true} />;
+  }
+
+  // Show loading state while checking allowlist
+  if (isWalletConnected && isCheckingAllowlist) {
+    return <LoadingState message="Checking wallet permissions..." />;
   }
 
   if (isWalletConnected && !isAllowed) {

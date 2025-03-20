@@ -37,6 +37,8 @@ export interface AuthContextValue {
   resetRejectionState: () => void;
 
   isPublicMode: boolean;
+
+  isCheckingAllowlist: boolean;
 }
 
 export interface TokenPayload {
