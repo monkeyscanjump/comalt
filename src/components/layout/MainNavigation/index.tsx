@@ -10,9 +10,22 @@ export function MainNavigation() {
   const [activeTabPosition, setActiveTabPosition] = useState({ left: 0, width: 0 });
   const navRef = useRef<HTMLElement>(null);
   const activeTabRef = useRef<HTMLAnchorElement>(null);
+  const [prevRoutesLength, setPrevRoutesLength] = useState(0);
 
-  // Update indicator position when active tab changes
+  // Update indicator position when active tab changes or routes change
   useEffect(() => {
+    if (routes.length > 0) {
+      // Update immediately and then several times to catch layout shifts
+      updateActiveIndicator();
+      const timeouts = [50, 200, 500].map(delay =>
+        setTimeout(updateActiveIndicator, delay)
+      );
+      return () => timeouts.forEach(clearTimeout);
+    }
+  }, [routes, isRouteActive, prevRoutesLength]);
+
+  // Function to update the active indicator position
+  const updateActiveIndicator = () => {
     if (activeTabRef.current && navRef.current) {
       const tabRect = activeTabRef.current.getBoundingClientRect();
       const navRect = navRef.current.getBoundingClientRect();
@@ -22,7 +35,7 @@ export function MainNavigation() {
         width: tabRect.width
       });
     }
-  }, [routes, isRouteActive]);
+  };
 
   // Filter and sort navigation items
   const navItems = routes

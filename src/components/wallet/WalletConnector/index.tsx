@@ -3,7 +3,7 @@
 import React from 'react';
 import { useAuth } from '@/contexts/auth';
 import styles from './WalletConnector.module.css';
-import AccountSelector from './AccountSelector';
+import AccountSelector from '@/components/wallet/AccountSelector';
 
 const WalletConnector = () => {
   const {

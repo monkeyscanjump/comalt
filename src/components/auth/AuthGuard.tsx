@@ -2,12 +2,16 @@
 
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/auth';
-import { LoadingState } from './LoadingState';
-import { ConnectWallet } from './ConnectWallet';
-import { AccessDenied } from './AccessDenied';
-import { SignatureRequest } from './SignatureRequest';
+import { LoadingState } from '@/components/auth/LoadingState';
+import { ConnectWallet } from '@/components/auth/ConnectWallet';
+import { AccessDenied } from '@/components/auth/AccessDenied';
+import { SignatureRequest } from '@/components/auth/SignatureRequest';
 import { usePathname } from 'next/navigation';
 import { config } from '@/config';
+import styles from './AuthComponents.module.css';
+
+// Maximum time to wait before showing recovery options
+const MAX_ALLOWLIST_CHECK_TIME = 7000; // 7 seconds
 
 /**
  * AuthGuard component controls access to protected content based on authentication state.
@@ -18,6 +22,9 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const [isMounted, setIsMounted] = useState(false);
   // Content visibility control
   const [shouldShowContent, setShouldShowContent] = useState(false);
+  // Allowlist check monitoring
+  const [allowlistCheckStartTime, setAllowlistCheckStartTime] = useState<number | null>(null);
+  const [isAllowlistCheckStalled, setIsAllowlistCheckStalled] = useState(false);
 
   const {
     isAuthenticated,
@@ -27,7 +34,8 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     walletAddress,
     wasSignatureRejected,
     isPublicMode,
-    isCheckingAllowlist
+    isCheckingAllowlist,
+    logout
   } = useAuth();
 
   const pathname = usePathname();
@@ -47,6 +55,43 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       setShouldShowContent(hasStoredAuth || isPublic);
     }
   }, []);
+
+  /**
+   * Track allowlist check start time
+   */
+  useEffect(() => {
+    if (isCheckingAllowlist && !allowlistCheckStartTime) {
+      setAllowlistCheckStartTime(Date.now());
+      setIsAllowlistCheckStalled(false);
+    } else if (!isCheckingAllowlist && allowlistCheckStartTime) {
+      setAllowlistCheckStartTime(null);
+      setIsAllowlistCheckStalled(false);
+    }
+  }, [isCheckingAllowlist, allowlistCheckStartTime]);
+
+  /**
+   * Monitor allowlist check duration and detect if it stalls
+   */
+  useEffect(() => {
+    if (!allowlistCheckStartTime) return;
+
+    const checkTimerId = setInterval(() => {
+      const elapsedTime = Date.now() - allowlistCheckStartTime;
+      if (elapsedTime > MAX_ALLOWLIST_CHECK_TIME && isCheckingAllowlist) {
+        console.warn(`Allowlist check exceeded ${MAX_ALLOWLIST_CHECK_TIME}ms, marking as stalled`);
+        setIsAllowlistCheckStalled(true);
+
+        // If user is authenticated, auto-recover after some time
+        const hasToken = localStorage.getItem(config.auth.tokenName);
+        if (hasToken && elapsedTime > MAX_ALLOWLIST_CHECK_TIME + 5000) {
+          console.info('Authenticated user stuck - forcing page reload');
+          window.location.reload();
+        }
+      }
+    }, 1000);
+
+    return () => clearInterval(checkTimerId);
+  }, [allowlistCheckStartTime, isCheckingAllowlist]);
 
   /**
    * Update content visibility based on authentication state
@@ -73,10 +118,21 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         allowed: isAllowed,
         public: isPublicMode,
         shouldShowContent,
-        isCheckingAllowlist
+        isCheckingAllowlist,
+        checkStartTime: allowlistCheckStartTime,
+        isStalled: isAllowlistCheckStalled
       });
     }
-  }, [isAuthenticated, isAllowed, isPublicMode, pathname, shouldShowContent, isCheckingAllowlist]);
+  }, [
+    isAuthenticated,
+    isAllowed,
+    isPublicMode,
+    pathname,
+    shouldShowContent,
+    isCheckingAllowlist,
+    allowlistCheckStartTime,
+    isAllowlistCheckStalled
+  ]);
 
   /**
    * During server-side rendering, we need to render a skeleton or loading state
@@ -107,7 +163,42 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   // Show loading state while checking allowlist
   if (isWalletConnected && isCheckingAllowlist) {
-    return <LoadingState message="Checking wallet permissions..." />;
+    return (
+      <div className={styles.loadingContainer}>
+        <LoadingState message="Checking wallet permissions..." />
+
+        {isAllowlistCheckStalled && (
+          <div className={styles.retryContainer}>
+            <p className={styles.retryText}>
+              This is taking longer than expected.
+            </p>
+            <div className={styles.retryButtonGroup}>
+              <button
+                className={styles.retryButton}
+                onClick={() => {
+                  // Force reload the page
+                  window.location.reload();
+                }}
+              >
+                Refresh Page
+              </button>
+              <button
+                className={`${styles.retryButton} ${styles.retryButtonSecondary}`}
+                onClick={() => {
+                  // Restart auth completely
+                  logout();
+                  setTimeout(() => {
+                    window.location.reload();
+                  }, 100);
+                }}
+              >
+                Restart Authentication
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
   }
 
   if (isWalletConnected && !isAllowed) {

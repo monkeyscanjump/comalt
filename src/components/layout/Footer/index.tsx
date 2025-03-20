@@ -1,10 +1,11 @@
 import React from 'react';
 // import Link from 'next/link';
+import { getPublicEnv } from '@/utils/env';
 import styles from '@/app/layout.module.css';
 
 export function Footer() {
-  const appName = process.env.NEXT_PUBLIC_APP_NAME || 'comalt';
-  const appVersion = process.env.NEXT_PUBLIC_APP_VERSION || '1.0.0';
+  const appName = getPublicEnv('APP_NAME', 'comalt');
+  const appVersion = getPublicEnv('APP_VERSION', '1.0.0');
 
   return (
     <footer className={styles.footer}>

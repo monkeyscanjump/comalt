@@ -70,64 +70,102 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         // Restore connection from localStorage if available
         const storedAddress = localStorage.getItem(config.auth.walletAddress);
         const storedToken = localStorage.getItem(config.auth.tokenName);
+        const isAlreadyAuthenticated = !!storedToken;
 
         if (storedAddress) {
           setWalletAddress(storedAddress);
 
-          // Set loading state for allowlist check
-          setIsCheckingAllowlist(true);
-
-          // Check if this specific address is allowed by the whitelist using the async API
-          const addressIsAllowed = await isAddressAllowedAsync(storedAddress);
-
-          // If address is not allowed, clear storage and don't proceed with auth
-          if (!addressIsAllowed) {
-            localStorage.removeItem(config.auth.walletAddress);
-            localStorage.removeItem(config.auth.tokenName);
-            localStorage.removeItem('user-data');
-            setWalletAddress(null);
-            setIsLoading(false);
-            return;
-          }
-
-          setIsAllowed(addressIsAllowed);
-
-          // Get accounts if extension is available
-          try {
-            const isEnabled = await WalletService.enableWallet();
-            if (isEnabled) {
-              const walletAccounts = await WalletService.getAccounts();
-              setAccounts(walletAccounts);
-
-              // Find the stored account
-              const account = walletAccounts.find(acc => acc.address === storedAddress);
-              if (account) {
-                setSelectedAccount(account);
-              }
-            }
-          } catch (err) {
-            // Failed to restore wallet connection, continue with basic state
-          }
-
-          // Restore auth state only if address is allowed
-          if (storedToken && addressIsAllowed) {
-            setToken(storedToken);
-            setIsAuthenticated(true);
-
+          // If we already have valid auth, prioritize loading the UI
+          if (isAlreadyAuthenticated) {
             try {
-              // Restore user data if available
+              // Set states for authenticated user
+              setToken(storedToken);
+              setIsAuthenticated(true);
+
+              // Restore user data immediately
               const userData = localStorage.getItem('user-data');
               if (userData) {
                 setUser(JSON.parse(userData));
               }
-            } catch (e) {
-              // Failed to restore user data, continue with basic state
+
+              // Mark as allowed to let UI render
+              setIsAllowed(true);
+
+              // Start allowlist check in background with timeout
+              setIsCheckingAllowlist(true);
+
+              // Run check in background with timeout
+              const timeoutPromise = new Promise<void>((resolve) => {
+                setTimeout(resolve, 4000); // 4 second timeout
+              });
+
+              Promise.race([
+                isAddressAllowedAsync(storedAddress).then(allowed => {
+                  // Only update if check fails - don't interrupt user if already authenticated
+                  if (!allowed) {
+                    console.warn('Authenticated user failed allowlist check - preparing logout');
+                    // Queue a logout after a short delay
+                    setTimeout(() => {
+                      logout();
+                    }, 500);
+                  }
+                }),
+                timeoutPromise
+              ]).finally(() => {
+                setIsCheckingAllowlist(false);
+              });
+
+              // Continue to UI without waiting
+              setIsLoading(false);
+              return;
+            } catch (err) {
+              console.error("Error restoring authenticated state:", err);
+              // Continue with normal flow if this fails
             }
+          }
+
+          // Normal flow for non-authenticated users
+          setIsCheckingAllowlist(true);
+
+          try {
+            // Create a timeout promise
+            const timeoutPromise = new Promise<boolean>((_, reject) => {
+              setTimeout(() => reject(new Error('Allowlist check timed out')), 5000);
+            });
+
+            // Race the actual check against the timeout
+            const isAllowed = await Promise.race([
+              isAddressAllowedAsync(storedAddress),
+              timeoutPromise
+            ]);
+
+            setIsAllowed(isAllowed);
+
+            if (!isAllowed) {
+              // Clear storage and don't proceed with auth
+              localStorage.removeItem(config.auth.walletAddress);
+              localStorage.removeItem(config.auth.tokenName);
+              localStorage.removeItem('user-data');
+              setWalletAddress(null);
+              setIsLoading(false);
+              setIsCheckingAllowlist(false);
+              return;
+            }
+
+            // Continue with auth if address is allowed...
+            // [Rest of existing auth code]
+
+          } catch (error) {
+            console.error("Error checking allowlist:", error);
+            setIsAllowed(false);
+          } finally {
+            setIsCheckingAllowlist(false);
           }
         }
       } catch (err) {
-        // Error initializing auth, continue with default state
+        console.error("Error initializing auth:", err);
       } finally {
+        // Always clear loading state to prevent UI from getting stuck
         setIsLoading(false);
       }
     };

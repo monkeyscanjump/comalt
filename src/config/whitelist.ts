@@ -145,15 +145,20 @@ export async function isAddressAllowedAsync(address: string | null | undefined):
       return currentAddressRequests.get(address)!;
     }
 
+    // Create controller for abort
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000); // 4 second timeout
+
     // Create a new request and store the promise
     const addressRequest = fetch('/api/auth/validate-address', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ address })
+      body: JSON.stringify({ address }),
+      signal: controller.signal
     })
       .then(response => {
         if (!response.ok) {
-          throw new Error('Failed to validate address');
+          throw new Error(`Failed to validate address: ${response.status}`);
         }
         return response.json();
       })
@@ -166,10 +171,28 @@ export async function isAddressAllowedAsync(address: string | null | undefined):
         return data.isAllowed;
       })
       .catch(error => {
-        console.error('Error validating address:', error);
+        if (error.name === 'AbortError') {
+          console.warn('Address validation request aborted due to timeout');
+
+          // *** CRITICAL CHANGE FOR LOGGED-IN USERS ***
+          // If we have a stored token, assume the address is allowed
+          // This helps already authenticated users not get stuck on refresh
+          if (typeof window !== 'undefined' && localStorage.getItem('auth-token')) {
+            console.info('User has auth token, assuming address is allowed despite timeout');
+            addressValidationCache.set(address, {
+              isAllowed: true,
+              timestamp: now - (CACHE_TTL - 60000) // Cache for 1 minute only on timeout
+            });
+            return true;
+          }
+        } else {
+          console.error('Error validating address:', error);
+        }
+
         return false; // Default to not allowed for safety
       })
       .finally(() => {
+        clearTimeout(timeoutId);
         // Remove from in-progress map after a short delay
         setTimeout(() => {
           currentAddressRequests.delete(address);

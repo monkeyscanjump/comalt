@@ -4,9 +4,10 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { useAuth } from '@/contexts/auth';
-import { MainNavigation } from './MainNavigation';
-import ThemeToggle from '@/components/ThemeToggle';
+import { MainNavigation } from '@/components/layout/MainNavigation';
+import ThemeToggle from '@/components/layout/ThemeToggle';
 import styles from './DynamicHeader.module.css';
+import { getPublicEnv } from '@/utils/env';
 
 // Import WalletConnector with SSR disabled to prevent hydration errors
 const WalletConnector = dynamic(
@@ -18,7 +19,7 @@ export function DynamicHeader() {
   const [isClient, setIsClient] = useState(false);
   const { isPublicMode } = useAuth();
 
-  const appName = process.env.NEXT_PUBLIC_APP_NAME || 'comalt';
+  const appName = getPublicEnv('APP_NAME', 'comalt');
 
   useEffect(() => {
     setIsClient(true);

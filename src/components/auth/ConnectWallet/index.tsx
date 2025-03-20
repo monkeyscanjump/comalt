@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAuth } from '@/contexts/auth';
-import styles from './AuthComponents.module.css';
+import styles from '@/components/auth/AuthComponents.module.css';
 
 interface ConnectWalletProps {
   showTitle?: boolean;

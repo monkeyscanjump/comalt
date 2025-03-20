@@ -4,6 +4,7 @@ import React, { useEffect, useRef } from 'react';
 import { useNavigation } from '@/contexts/navigation/NavigationContext';
 import { IconType } from 'react-icons';
 import { usePathname } from 'next/navigation';
+import { getPublicEnv } from '@/utils/env';
 
 interface PageWrapperProps {
   title: string;
@@ -37,6 +38,10 @@ export function PageWrapper({
         showInNav,
         order
       });
+
+      // Update document title
+      const appName = getPublicEnv('APP_NAME', 'comalt');
+      document.title = `${title} | ${appName}`;
 
       isFirstRender.current = false;
     }
