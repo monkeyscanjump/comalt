@@ -4,7 +4,7 @@ import { getPublicEnv } from '@/utils/env';
 import styles from '@/app/layout.module.css';
 
 export function Footer() {
-  const appName = getPublicEnv('APP_NAME', 'comalt');
+  const appName = getPublicEnv('APP_NAME', 'comAlt');
   const appVersion = getPublicEnv('APP_VERSION', '1.0.0');
 
   return (
@@ -31,7 +31,7 @@ export function Footer() {
         <div className={styles.footerSection}>
           <h4 className={styles.footerHeading}>Contact</h4>
           <p className={styles.footerText}>
-            For support inquiries: <a href="mailto:support@comalt.io" className={styles.footerLink}>support@comalt.io</a>
+            For support inquiries: <a href="mailto:support@comalt.io" className={styles.footerLink}>support@comAlt.io</a>
           </p>
         </div>
       </div> */}

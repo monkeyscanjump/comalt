@@ -10,7 +10,7 @@ export const config = {
     polkadotUrl: getEnvVariable('POLKADOT_API_URL', 'https://rpc.polkadot.io')
   },
   app: {
-    name: getPublicEnv('APP_NAME', 'Download Manager'),
+    name: getPublicEnv('APP_NAME', 'comAlt'),
     version: getPublicEnv('APP_VERSION', '1.0.0'),
     environment: getPublicEnv('NODE_ENV', 'development'),
     isProduction: getPublicEnv('NODE_ENV', 'development') === 'production'
@@ -18,7 +18,9 @@ export const config = {
   auth: {
     walletAddress: 'wallet-address',
     tokenName: 'auth-token',
-    publicModeFlag: 'is-public-mode'
+    publicModeFlag: 'is-public-mode',
+    userData: 'user-data',
+    walletName: 'wallet-name'
   }
 };
 

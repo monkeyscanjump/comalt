@@ -40,7 +40,7 @@ export function PageWrapper({
       });
 
       // Update document title
-      const appName = getPublicEnv('APP_NAME', 'comalt');
+      const appName = getPublicEnv('APP_NAME', 'comAlt');
       document.title = `${title} | ${appName}`;
 
       isFirstRender.current = false;

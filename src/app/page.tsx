@@ -3,6 +3,7 @@
 import React from 'react';
 import { PageWrapper } from '@/components/layout/PageWrapper';
 import { FaHome } from 'react-icons/fa';
+import { getPublicEnv } from '@/utils/env';
 
 export default function HomePage() {
   return (
@@ -12,7 +13,7 @@ export default function HomePage() {
       order={1}
     >
       <div>
-        <h1>Welcome to comalt</h1>
+        <h1>Welcome to {getPublicEnv('APP_NAME', 'comAlt')}</h1>
         <p>Manage and track your downloads in one place.</p>
 
         <div style={{ marginTop: '2rem', textAlign: 'center' }}>

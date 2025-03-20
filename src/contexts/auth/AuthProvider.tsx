@@ -11,6 +11,26 @@ import {
 } from '@/config/whitelist';
 import type { InjectedAccountWithMeta } from '@polkadot/extension-inject/types';
 import type { User } from '@/types/user';
+import { getPublicEnv } from '@/utils/env';
+
+/**
+ * Generates a unique user ID from a wallet address
+ */
+const generateUniqueUserId = (address: string): string => {
+  // Create a hash from the address to ensure uniqueness between wallets
+  let hash = 0;
+  for (let i = 0; i < address.length; i++) {
+    const char = address.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+
+  // Use address prefix plus hash portion for a readable but unique ID
+  const prefix = address.substring(0, 6);
+  const hashPart = Math.abs(hash).toString(16).substring(0, 8);
+
+  return `${prefix}-${hashPart}`;
+};
 
 /**
  * AuthProvider manages authentication state for the application.
@@ -83,7 +103,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               setIsAuthenticated(true);
 
               // Restore user data immediately
-              const userData = localStorage.getItem('user-data');
+              const userData = localStorage.getItem(config.auth.userData);
               if (userData) {
                 setUser(JSON.parse(userData));
               }
@@ -145,16 +165,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               // Clear storage and don't proceed with auth
               localStorage.removeItem(config.auth.walletAddress);
               localStorage.removeItem(config.auth.tokenName);
-              localStorage.removeItem('user-data');
+              localStorage.removeItem(config.auth.userData);
               setWalletAddress(null);
               setIsLoading(false);
               setIsCheckingAllowlist(false);
               return;
             }
-
-            // Continue with auth if address is allowed...
-            // [Rest of existing auth code]
-
           } catch (error) {
             console.error("Error checking allowlist:", error);
             setIsAllowed(false);
@@ -268,7 +284,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     try {
       // Set loading state for allowlist check
-    setIsCheckingAllowlist(true);
+      setIsCheckingAllowlist(true);
       // Add critical whitelist check using the async API
       const addressIsAllowed = await isAddressAllowedAsync(address);
       if (!addressIsAllowed) {
@@ -281,7 +297,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setWasSignatureRejected(false);
 
       // Create a unique message
-      const message = `Sign this message to authenticate with comalt: ${Date.now()}`;
+      const message = `Sign this message to authenticate with ${getPublicEnv('APP_NAME', 'comAlt')}: ${Date.now()}`;
 
       // Get signature - this might throw if rejected
       const signature = await signMessage(message);
@@ -298,9 +314,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // Set authenticated state
       setIsAuthenticated(true);
 
-      // Create user object
+      // Create user object with UNIQUE ID derived from wallet address
+      const userId = generateUniqueUserId(address);
+
       const user = {
-        id: '1',
+        id: userId, // Now unique per wallet address
         address,
         name: selectedAccount?.meta?.name || null,
         isAdmin: true,
@@ -310,7 +328,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       };
 
       setUser(user);
-      localStorage.setItem('user-data', JSON.stringify(user));
+      localStorage.setItem(config.auth.userData, JSON.stringify(user));
 
       return true;
     } catch (err) {
@@ -413,7 +431,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Clear localStorage
     localStorage.removeItem(config.auth.walletAddress);
     localStorage.removeItem(config.auth.tokenName);
-    localStorage.removeItem('user-data');
+    localStorage.removeItem(config.auth.userData);
+    localStorage.removeItem(config.auth.walletName);
   };
 
   /**

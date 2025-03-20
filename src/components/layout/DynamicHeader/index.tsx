@@ -19,7 +19,7 @@ export function DynamicHeader() {
   const [isClient, setIsClient] = useState(false);
   const { isPublicMode } = useAuth();
 
-  const appName = getPublicEnv('APP_NAME', 'comalt');
+  const appName = getPublicEnv('APP_NAME', 'comAlt');
 
   useEffect(() => {
     setIsClient(true);
