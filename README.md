@@ -21,7 +21,7 @@ Comalt Download Manager is a Next.js application that provides a secure interfac
 - **Frontend**: Next.js, React, TypeScript
 - **Authentication**: Polkadot/Substrate wallet signature verification
 - **State Management**: React Context
-- **Styling**: CSS Modules, Tailwind CSS
+- **Styling**: CSS Modules
 - **Database**: Prisma with your choice of database backend
 - **API**: Next.js API Routes
 
@@ -31,7 +31,7 @@ Comalt Download Manager is a Next.js application that provides a secure interfac
 
 - Node.js 16.x or later
 - npm or yarn
-- A Polkadot/Substrate compatible wallet (like Polkadot.js extension)
+- A Polkadot/Substrate compatible wallet (like Polkadot.js extension or SubWallet)
 
 ### Installation
 
@@ -96,6 +96,132 @@ NEXT_PUBLIC_APP_VERSION=1.0.0
 # Leave empty for public mode (all addresses allowed)
 ALLOWED_WALLETS=5FBihsF4H6PGKjnbV4R7RKqQN4abFd4AhxUNukaPvj3Susdt,second_address,third_address
 ```
+
+## Application Configuration
+
+### Default Configuration
+
+Default configurations are located in the config directory:
+
+- `index.ts`: Main application configuration with API endpoints, app info, and auth settings
+- `whitelist.ts`: Whitelist settings and logic for access control
+
+### Adding a New Page and Navigation
+
+The application uses a page discovery system for automatic navigation generation:
+
+1. **Create a Page Component**:
+
+   Create a new file in the app directory structure, following Next.js App Router conventions:
+
+   ```tsx
+   // src/app/example/page.tsx
+   "use client";
+
+   import React from 'react';
+   import { PageWrapper } from '@/components/layout/PageWrapper';
+   import { FaClipboard } from 'react-icons/fa';
+
+   export default function ExamplePage() {
+     return (
+       <PageWrapper
+         title="Example Page"
+         icon={FaClipboard}
+         order={3}
+       >
+         <div>
+           <h1>Example Page</h1>
+           <p>This is an example page content.</p>
+         </div>
+       </PageWrapper>
+     );
+   }
+   ```
+
+2. **Register the Page in Page Discovery**:
+
+   Open pageDiscovery.ts and add your page to the `PAGE_REGISTRY`:
+
+   ```typescript
+   // Update the PAGE_REGISTRY object
+   const PAGE_REGISTRY: Record<string, {
+     title: string;
+     icon: IconType;
+     order: number;
+     showInNav: boolean;
+   }> = {
+     // Core pages
+     '/': {
+       title: 'Dashboard',
+       icon: FaHome,
+       order: 10,
+       showInNav: true
+     },
+     '/downloads': {
+       title: 'Downloads',
+       icon: FaDownload,
+       order: 20,
+       showInNav: true
+     },
+     '/example': {
+       title: 'Example Page',
+       icon: FaClipboard,
+       order: 30,
+       showInNav: true
+     },
+     // Add more pages here - they'll automatically appear in navigation
+   };
+   ```
+
+3. **Page Parameters Explained**:
+
+   - `title`: The display name shown in navigation and page header
+   - `icon`: React icon component from react-icons
+   - `order`: Numerical order in the navigation (lower numbers appear first)
+   - `showInNav`: Whether to display this page in the navigation menu
+
+This approach automatically updates the site navigation without requiring changes to multiple files.
+
+### Configuring SubWallet Extension for Localhost
+
+To ensure SubWallet shows all accounts when running the application on localhost:
+
+1. **Open SubWallet Extension**:
+   - Click on the SubWallet extension icon in your browser
+
+2. **Access Settings**:
+   - Go to Settings (gear icon)
+   - Select "Manage Website Access"
+
+3. **Find and Modify Localhost Permission**:
+   - Look for `localhost` or `127.0.0.1` in the list
+   - If not found, you may need to connect from your app first
+   - Change the permission to "Allow reading all accounts"
+
+4. **Enable "Web Authorization"**:
+   - In Settings, make sure "Web Authorization" is turned on
+
+5. **Reload Your Application**:
+   - After changing permissions, fully reload your application
+
+### Configuring Polkadot.js Extension for Localhost
+
+If you're using the Polkadot.js extension:
+
+1. **Open the Extension**:
+   - Click on the Polkadot.js extension icon
+
+2. **Access Settings**:
+   - Click the settings icon (gear)
+
+3. **Modify Global Settings**:
+   - Toggle on "Allow authorization for all accounts"
+
+4. **Set Website-Specific Permissions**:
+   - Find "localhost" in the list of websites
+   - Click "Manage website access"
+   - Select all accounts you want to make available
+   - Click "Allow"
 
 ## Authentication System
 

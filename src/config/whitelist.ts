@@ -2,6 +2,7 @@
  * Whitelist configuration with environment detection
  * Handles both client and server environments efficiently
  */
+import { decodeAddress, encodeAddress } from '@polkadot/util-crypto';
 
 // Cache settings
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
@@ -22,6 +23,21 @@ const isServer = typeof window === 'undefined';
 
 // Direct server-side implementation (avoids API calls on server)
 import * as serverWhitelist from '@/lib/whitelist-server';
+
+/**
+ * Normalize a Substrate address to a standard format
+ * This helps with address comparison when addresses might be in different formats
+ */
+export function normalizeAddress(address: string): string {
+  try {
+    // Convert address to standard Substrate format (ss58Format = 42)
+    const publicKey = decodeAddress(address);
+    return encodeAddress(publicKey, 42);
+  } catch (error) {
+    console.error('Failed to normalize address for whitelist check:', error);
+    return address; // Return original if normalization fails
+  }
+}
 
 /**
  * Check if any addresses are configured in the whitelist
@@ -117,32 +133,43 @@ export async function isAddressAllowedAsync(address: string | null | undefined):
   if (!address) return false;
 
   try {
-    // Check cache first
+    // Normalize the address for consistent comparison
+    const normalizedAddress = normalizeAddress(address);
+
+    // Debug log for address checking
+    console.log(`Checking access for address: ${address.slice(0, 6)}...${address.slice(-4)}`, {
+      original: address,
+      normalized: normalizedAddress
+    });
+
+    // Check cache first (using normalized address)
     const now = Date.now();
-    const cached = addressValidationCache.get(address);
+    const cached = addressValidationCache.get(normalizedAddress);
     if (cached && (now - cached.timestamp) < CACHE_TTL) {
+      console.log(`Using cached result for ${normalizedAddress.slice(0, 6)}...: ${cached.isAllowed}`);
       return cached.isAllowed;
     }
 
     // If we have a definitive public mode cache and it's true, all addresses are allowed
     if (publicModeCache.value === true && (now - publicModeCache.timestamp) < CACHE_TTL) {
-      addressValidationCache.set(address, { isAllowed: true, timestamp: now });
+      addressValidationCache.set(normalizedAddress, { isAllowed: true, timestamp: now });
       return true;
     }
 
     // If running on server, use direct implementation
     if (isServer) {
-      const isAllowed = serverWhitelist.isAddressAllowed(address);
-      addressValidationCache.set(address, {
+      // Server implementation needs to normalize the address for comparison too
+      const isAllowed = serverWhitelist.isAddressAllowed(normalizedAddress);
+      addressValidationCache.set(normalizedAddress, {
         isAllowed,
         timestamp: now
       });
       return isAllowed;
     }
 
-    // On client, use API with request deduplication
-    if (currentAddressRequests.has(address)) {
-      return currentAddressRequests.get(address)!;
+    // On client, use API with request deduplication (using normalized address for cache key)
+    if (currentAddressRequests.has(normalizedAddress)) {
+      return currentAddressRequests.get(normalizedAddress)!;
     }
 
     // Create controller for abort
@@ -153,7 +180,10 @@ export async function isAddressAllowedAsync(address: string | null | undefined):
     const addressRequest = fetch('/api/auth/validate-address', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ address }),
+      body: JSON.stringify({
+        address: normalizedAddress,
+        originalAddress: address // Send both for server-side logging
+      }),
       signal: controller.signal
     })
       .then(response => {
@@ -163,8 +193,11 @@ export async function isAddressAllowedAsync(address: string | null | undefined):
         return response.json();
       })
       .then(data => {
+        // Log the response for debugging
+        console.log(`Address ${normalizedAddress.slice(0, 6)}... validation result:`, data);
+
         // Cache result
-        addressValidationCache.set(address, {
+        addressValidationCache.set(normalizedAddress, {
           isAllowed: data.isAllowed,
           timestamp: now
         });
@@ -179,7 +212,7 @@ export async function isAddressAllowedAsync(address: string | null | undefined):
           // This helps already authenticated users not get stuck on refresh
           if (typeof window !== 'undefined' && localStorage.getItem('auth-token')) {
             console.info('User has auth token, assuming address is allowed despite timeout');
-            addressValidationCache.set(address, {
+            addressValidationCache.set(normalizedAddress, {
               isAllowed: true,
               timestamp: now - (CACHE_TTL - 60000) // Cache for 1 minute only on timeout
             });
@@ -195,12 +228,12 @@ export async function isAddressAllowedAsync(address: string | null | undefined):
         clearTimeout(timeoutId);
         // Remove from in-progress map after a short delay
         setTimeout(() => {
-          currentAddressRequests.delete(address);
+          currentAddressRequests.delete(normalizedAddress);
         }, 50);
       });
 
     // Store the promise
-    currentAddressRequests.set(address, addressRequest);
+    currentAddressRequests.set(normalizedAddress, addressRequest);
     return addressRequest;
   } catch (error) {
     console.error('Error in isAddressAllowedAsync:', error);
@@ -214,35 +247,43 @@ export async function isAddressAllowedAsync(address: string | null | undefined):
 export function isAddressAllowed(address: string | null | undefined): boolean {
   if (!address) return false;
 
-  const now = Date.now();
+  try {
+    // Normalize the address for consistent comparison
+    const normalizedAddress = normalizeAddress(address);
 
-  // Check cache first
-  const cached = addressValidationCache.get(address);
-  if (cached && (now - cached.timestamp) < CACHE_TTL) {
-    return cached.isAllowed;
+    const now = Date.now();
+
+    // Check cache first
+    const cached = addressValidationCache.get(normalizedAddress);
+    if (cached && (now - cached.timestamp) < CACHE_TTL) {
+      return cached.isAllowed;
+    }
+
+    // If we have public mode cached as true, all addresses are allowed
+    if (publicModeCache.value === true && (now - publicModeCache.timestamp) < CACHE_TTL) {
+      addressValidationCache.set(normalizedAddress, { isAllowed: true, timestamp: now });
+      return true;
+    }
+
+    // If on server, use direct implementation
+    if (isServer) {
+      const isAllowed = serverWhitelist.isAddressAllowed(normalizedAddress);
+      addressValidationCache.set(normalizedAddress, {
+        isAllowed,
+        timestamp: now
+      });
+      return isAllowed;
+    }
+
+    // On client with no cache, trigger async update
+    isAddressAllowedAsync(address).catch(console.error);
+
+    // Default to not allowed if we have no cached data yet
+    return false;
+  } catch (error) {
+    console.error('Error in isAddressAllowed:', error);
+    return false;
   }
-
-  // If we have public mode cached as true, all addresses are allowed
-  if (publicModeCache.value === true && (now - publicModeCache.timestamp) < CACHE_TTL) {
-    addressValidationCache.set(address, { isAllowed: true, timestamp: now });
-    return true;
-  }
-
-  // If on server, use direct implementation
-  if (isServer) {
-    const isAllowed = serverWhitelist.isAddressAllowed(address);
-    addressValidationCache.set(address, {
-      isAllowed,
-      timestamp: now
-    });
-    return isAllowed;
-  }
-
-  // On client with no cache, trigger async update
-  isAddressAllowedAsync(address).catch(console.error);
-
-  // Default to not allowed if we have no cached data yet
-  return false;
 }
 
 // Empty array for backward compatibility

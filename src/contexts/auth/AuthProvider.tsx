@@ -197,24 +197,33 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setError(null);
 
     try {
+      // Check if extension is available
+      if (!WalletService.isWalletExtensionAvailable()) {
+        throw new Error('No wallet extension detected. Please install Polkadot.js or SubWallet extension.');
+      }
+
       // Enable wallet extension
       const isEnabled = await WalletService.enableWallet();
       if (!isEnabled) {
         throw new Error('Wallet extension not found or not enabled');
       }
 
-      // Get accounts
-      const walletAccounts = await WalletService.getAccounts();
+      // Get accounts with force refresh to ensure we get the latest
+      const walletAccounts = await WalletService.getAccounts(true);
+
       if (!walletAccounts || walletAccounts.length === 0) {
-        throw new Error('No accounts found in wallet');
+        throw new Error('No accounts found in wallet. Please check wallet permissions or create an account first.');
       }
 
       // Update state
       setAccounts(walletAccounts);
+
+      // Always show the account selector, even with a single account
       setShowAccountSelector(true);
 
       return true;
     } catch (err) {
+      console.error('Connect error:', err);
       setError(err instanceof Error ? err.message : 'Failed to connect wallet');
       return false;
     } finally {

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cryptoWaitReady, signatureVerify } from '@polkadot/util-crypto';
-import { isAddressAllowed } from '@/config/whitelist';
 import { extractTokenFromHeader, verifyToken } from '@/utils/auth';
 
 /**
