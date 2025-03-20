@@ -38,8 +38,8 @@ Comalt Download Manager is a Next.js application that provides a secure interfac
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/yourusername/download-manager.git
-   cd download-manager
+   git clone https://github.com/monkeyscanjump/comalt.git
+   cd comalt
    ```
 
 2. Install dependencies:
@@ -88,7 +88,7 @@ JWT_SECRET="your-secure-jwt-secret"
 POLKADOT_API_URL=https://rpc.polkadot.io
 
 # Public variables (accessible in browser)
-NEXT_PUBLIC_APP_NAME=Comalt Download Manager
+NEXT_PUBLIC_APP_NAME=comalt
 NEXT_PUBLIC_APP_VERSION=1.0.0
 
 # Whitelist Configuration (server-side only)
