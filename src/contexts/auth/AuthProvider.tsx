@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import AuthContext from './AuthContext';
 import { WalletService } from './WalletService';
 import { config } from '@/config';
+import { AuthAPI } from './AuthAPI';
 import {
   hasWhitelistedAddresses,
   hasWhitelistedAddressesAsync,
@@ -66,13 +67,40 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // Calculate derived states
   const isWalletConnected = !!selectedAccount || !!walletAddress;
 
+  /**
+   * Logout and clear all authentication state
+   * Define this function early with useCallback to use in effects
+   */
+  const logout = useCallback(() => {
+    // If we have a token, call the logout API
+    if (token) {
+      AuthAPI.logout(token).catch(err => {
+        console.error('Logout API error:', err);
+      });
+    }
+
+    setSelectedAccount(null);
+    setWalletAddress(null);
+    setIsAuthenticated(false);
+    setIsAllowed(false);
+    setUser(null);
+    setToken(null);
+    setWasSignatureRejected(false);
+
+    // Clear localStorage
+    localStorage.removeItem(config.auth.walletAddress);
+    localStorage.removeItem(config.auth.tokenName);
+    localStorage.removeItem(config.auth.userData);
+    localStorage.removeItem(config.auth.walletName);
+  }, [token]);
+
   // Clear authentication state when switching to public mode
   useEffect(() => {
     if (isPublicMode && (isAuthenticated || isWalletConnected)) {
       // Clear auth state when transitioning to public mode for consistency
       logout();
     }
-  }, [isPublicMode, isAuthenticated, isWalletConnected]);
+  }, [isPublicMode, isAuthenticated, isWalletConnected, logout]);
 
   // Initialize auth state
   useEffect(() => {
@@ -187,7 +215,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     initAuth();
-  }, [isPublicMode]);
+  }, [isPublicMode, logout]);
 
   /**
    * Connect to wallet extension and get available accounts
@@ -218,7 +246,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // Update state
       setAccounts(walletAccounts);
 
-      // Always show the account selector, even with a single account
+      // IMPORTANT: Always show account selector, even with a single account
+      // This ensures consistent behavior across different usage patterns
       setShowAccountSelector(true);
 
       return true;
@@ -315,50 +344,42 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return false;
       }
 
-      // In a real app, you'd verify this signature on the server
-      const token = 'auth-token-' + Date.now(); // Simplified token
-      setToken(token);
-      localStorage.setItem(config.auth.tokenName, token);
+      try {
+        // Send the signature to the server for verification and get a JWT token
+        const response = await AuthAPI.verifySignature(address, signature, message);
 
-      // Set authenticated state
-      setIsAuthenticated(true);
+        if (!response || !response.token) {
+          console.error('API returned invalid response:', response);
+          setError('Server returned invalid response');
+          return false;
+        }
 
-      // Create user object with UNIQUE ID derived from wallet address
-      const userId = generateUniqueUserId(address);
+        const { token, user } = response;
 
-      const user = {
-        id: userId, // Now unique per wallet address
-        address,
-        name: selectedAccount?.meta?.name || null,
-        isAdmin: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        lastLoginAt: new Date()
-      };
+        // Store token and user info
+        setToken(token);
+        setUser(user);
+        localStorage.setItem(config.auth.tokenName, token);
+        localStorage.setItem(config.auth.userData, JSON.stringify(user));
 
-      setUser(user);
-      localStorage.setItem(config.auth.userData, JSON.stringify(user));
+        // Set authenticated state
+        setIsAuthenticated(true);
 
-      return true;
-    } catch (err) {
-      // Check if this was a rejection
-      const isRejection = err instanceof Error &&
-        (err.message.toLowerCase().includes('reject') ||
-         err.message.toLowerCase().includes('cancel') ||
-         err.message.toLowerCase().includes('denied'));
-
-      if (isRejection) {
-        setWasSignatureRejected(true);
-      } else {
-        setError(err instanceof Error ? err.message : 'Failed to sign message');
+        return true;
+      } catch (apiError) {
+        console.error('API verification error:', apiError);
+        setError(apiError instanceof Error ? apiError.message : 'Server verification failed');
+        return false;
       }
-
+    } catch (err) {
+      // Handle signature rejection or other errors
+      console.error('Signature request error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to get signature');
       return false;
     } finally {
       setIsRequestingSignature(false);
     }
   }, [
-    selectedAccount,
     setError,
     setIsRequestingSignature,
     setWasSignatureRejected,
@@ -406,42 +427,44 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
    * Refresh authentication token
    */
   const refreshAuthToken = async (): Promise<boolean> => {
-    if (!isAuthenticated || !walletAddress) return false;
+    if (!isAuthenticated || !walletAddress || !token) return false;
 
     try {
-      // Verify wallet is still allowed before refreshing token using the async API
+      // Verify wallet is still allowed before refreshing token
       const addressIsAllowed = await isAddressAllowedAsync(walletAddress);
       if (!addressIsAllowed) {
         logout(); // Force logout if address no longer allowed
         return false;
       }
 
-      const newToken = 'refreshed-token-' + Date.now();
-      setToken(newToken);
-      localStorage.setItem(config.auth.tokenName, newToken);
-      return true;
+      // Use the API to refresh the token
+      try {
+        const response = await AuthAPI.refreshToken(token);
+
+        if (!response || !response.token) {
+          console.error('Token refresh API returned invalid response:', response);
+          return false;
+        }
+
+        // Update state with the new token
+        setToken(response.token);
+        localStorage.setItem(config.auth.tokenName, response.token);
+
+        // Update user data if returned
+        if (response.user) {
+          setUser(response.user);
+          localStorage.setItem(config.auth.userData, JSON.stringify(response.user));
+        }
+
+        return true;
+      } catch (apiError) {
+        console.error('Token refresh API error:', apiError);
+        return false;
+      }
     } catch (err) {
+      console.error('Token refresh error:', err);
       return false;
     }
-  };
-
-  /**
-   * Logout and clear all authentication state
-   */
-  const logout = () => {
-    setSelectedAccount(null);
-    setWalletAddress(null);
-    setIsAuthenticated(false);
-    setIsAllowed(false);
-    setUser(null);
-    setToken(null);
-    setWasSignatureRejected(false);
-
-    // Clear localStorage
-    localStorage.removeItem(config.auth.walletAddress);
-    localStorage.removeItem(config.auth.tokenName);
-    localStorage.removeItem(config.auth.userData);
-    localStorage.removeItem(config.auth.walletName);
   };
 
   /**

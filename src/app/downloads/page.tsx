@@ -9,7 +9,6 @@ export default function DownloadsPage() {
     <PageWrapper
       title="Downloads"
       icon={FaDownload}
-      order={2}
     >
       <div>
         <h1>Downloads</h1>

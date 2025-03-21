@@ -19,6 +19,11 @@ export async function GET(request: NextRequest) {
       return errorResponse('No token provided', 'TOKEN_MISSING', 401);
     }
 
+    // Basic format validation first
+    if (!token.includes('.') || token.split('.').length !== 3) {
+      return errorResponse('Invalid token format', 'INVALID_FORMAT', 401);
+    }
+
     // Check cache first for better performance
     const cachedResult = getCachedToken(token);
     if (cachedResult) {
@@ -32,7 +37,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // First verify the token itself is valid
+    // Verify the token
     const tokenResult = await validateAuthToken(token);
 
     if (!tokenResult.valid) {
@@ -43,46 +48,54 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Look up session by token
-    const session = await prisma.session.findUnique({
-      where: { token },
-      include: { user: true }
-    });
+    // Try to get user information from session
+    let sessionUser = null;
+    try {
+      // Lookup the session
+      const session = await prisma.session.findFirst({
+        where: { token },
+        include: { user: true }
+      });
 
-    if (!session) {
-      console.log('Session not found');
-      return errorResponse('Session not found', 'SESSION_NOT_FOUND', 401);
+      if (session) {
+        if (session.expiresAt < new Date()) {
+          return errorResponse('Session expired', 'SESSION_EXPIRED', 401);
+        }
+
+        sessionUser = session.user;
+      }
+    } catch (dbError) {
+      console.error('Session lookup failed:', dbError);
+      // Continue even if session lookup fails
     }
 
-    if (session.expiresAt < new Date()) {
-      console.log('Session expired');
-      return errorResponse('Session expired', 'SESSION_EXPIRED', 401);
-    }
+    // Either use session user info or token info
+    const userId = sessionUser?.id || tokenResult.userId;
+    const address = sessionUser?.address || tokenResult.address;
+    const isAdmin = sessionUser?.isAdmin || tokenResult.isAdmin || false;
 
-    // Check whitelist status
-    const address = session.user.address;
-    const allowed = isAddressAllowed(address);
+    // Double check if address is still allowed
+    const allowed = isAddressAllowed(address || '');
 
-    // Save to cache for future requests
+    // Cache the result for future requests
     setCachedToken(token, {
       valid: true,
-      address,
-      userId: session.user.id,
+      address: address || '',
+      userId: userId || '',
       allowed,
-      isAdmin: session.user.isAdmin || false
+      isAdmin
     });
 
-    // Return user data along with valid status
+    // Return verification result
     return NextResponse.json({
       valid: true,
       address,
-      userId: session.user.id,
+      userId,
       allowed,
-      isAdmin: session.user.isAdmin || false
+      isAdmin
     });
-
   } catch (error) {
-    console.error('Error processing verification:', error);
+    console.error('Token verification error:', error);
     return errorResponse(
       'Verification failed',
       'VERIFICATION_FAILED',

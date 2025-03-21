@@ -31,48 +31,61 @@ export async function POST(request: NextRequest) {
 
   try {
     // Parse request body
-    const body = await parseRequestBody<{ address: string; signature: string; message: string }>(request);
+    const body = await parseRequestBody<{
+      address: string;
+      signature: string;
+      message: string;
+    }>(request);
 
-    if (!body || !body.address || !body.signature || !body.message) {
-      return errorResponse(
-        'Missing required fields',
-        'INVALID_REQUEST',
-        400,
-        { required: ['address', 'signature', 'message'] }
-      );
+    if (!body) {
+      return errorResponse('Invalid request body', 'INVALID_REQUEST', 400);
     }
 
     const { address, signature, message } = body;
 
-    // Check whitelist
-    const { allowed } = validateWalletAccess(address);
-    console.log('Address allowed:', allowed);
+    if (!address || !signature || !message) {
+      return errorResponse('Missing required fields', 'MISSING_FIELDS', 400);
+    }
 
+    // Validate wallet address format
+    if (!address.match(/^[a-zA-Z0-9]{48}$/)) {
+      return errorResponse('Invalid wallet address format', 'INVALID_ADDRESS', 400);
+    }
+
+    // Check if wallet is allowed to authenticate
+    const { allowed, isPublicMode } = validateWalletAccess(address);
     if (!allowed) {
-      console.log('Rejecting due to not whitelisted');
       return errorResponse(
-        'Your wallet address is not authorized to use this application',
-        'WALLET_NOT_ALLOWED',
-        403,
-        { allowed: false }
+        'Your wallet is not authorized to access this system',
+        'WALLET_NOT_AUTHORIZED',
+        403
       );
     }
 
-    // Verify signature
-    const { isValid, method } = await verifyWalletSignature(message, signature, address);
+    // Verify the signature
+    const { isValid, method } = await verifyWalletSignature(
+      message,
+      signature,
+      address
+    );
 
     if (!isValid) {
-      console.log('Signature invalid after trying all methods');
-      return errorResponse('Invalid signature', 'SIGNATURE_INVALID', 401);
+      return errorResponse(
+        'Invalid signature',
+        'INVALID_SIGNATURE',
+        401
+      );
     }
 
-    console.log(`Signature verified successfully using ${method}`);
+    console.log(`Signature verified with ${method}`);
 
-    // User lookup or creation
+    // Get or create user
     let user;
     try {
-      user = await prisma.user.findUnique({ where: { address } });
-      console.log('User found:', !!user);
+      // Check if user exists
+      user = await prisma.user.findFirst({
+        where: { address }
+      });
 
       if (!user) {
         console.log('Creating new user');
@@ -101,7 +114,7 @@ export async function POST(request: NextRequest) {
       token = generateToken({
         sub: user.id,
         address: user.address,
-        isAdmin: user.isAdmin || false
+        isAdmin: user.isAdmin || true
       });
       console.log('Token generated');
     } catch (tokenError) {
@@ -109,33 +122,42 @@ export async function POST(request: NextRequest) {
       return errorResponse('Token generation failed', 'TOKEN_GENERATION_ERROR', 500);
     }
 
-    // Create session
+    // Create session record
     try {
-      const expiresAt = new Date();
-      expiresAt.setHours(expiresAt.getHours() + 24);
-
-      await prisma.session.create({
-        data: {
-          token,
-          userId: user.id,
-          expiresAt,
-        },
+      const existingSession = await prisma.session.findFirst({
+        where: { userId: user.id }
       });
-      console.log('Session created');
+
+      if (existingSession) {
+        await prisma.session.update({
+          where: { id: existingSession.id },
+          data: {
+            token,
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
+          }
+        });
+      } else {
+        await prisma.session.create({
+          data: {
+            token,
+            userId: user.id,
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
+          }
+        });
+      }
     } catch (sessionError) {
-      console.error('Session creation error:', sessionError);
-      return errorResponse('Session creation failed', 'SESSION_CREATION_ERROR', 500);
+      console.error('Session error:', sessionError);
+      // Non-fatal - continue without session record
     }
 
-    console.log('Authentication successful');
+    // Return success with token and user info
     return NextResponse.json({
       token,
       user,
       allowed
     });
-
   } catch (error) {
-    console.error('Unhandled error:', error);
+    console.error('Wallet auth error:', error);
     return errorResponse(
       'Authentication failed',
       'AUTHENTICATION_FAILED',

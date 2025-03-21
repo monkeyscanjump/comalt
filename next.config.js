@@ -101,6 +101,12 @@ const nextConfig = {
     config.resolve.alias['@'] = path.join(__dirname, 'src');
     config.resolve.alias['@styles'] = path.join(__dirname, 'src/styles');
 
+    // Ignore optional dependencies that cause warnings
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      'osx-temperature-sensor': false,
+    };
+
     return config;
   },
 

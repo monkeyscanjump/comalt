@@ -1,17 +1,19 @@
 import React from 'react';
-import styles from '@/components/auth/AuthComponents.module.css';
+import styles from './LoadingState.module.css';
 
 interface LoadingStateProps {
   message?: string;
   showSpinner?: boolean;
 }
 
-export function LoadingState({ message = '', showSpinner = true }: LoadingStateProps) {
+export function LoadingState({ message = 'Loading...', showSpinner = true }: LoadingStateProps) {
   return (
     <div className={styles.loadingContainer}>
       {showSpinner && (
         <div className={styles.loadingSpinner}>
-          <div className={styles.spinner}></div>
+          {/* Two half circles that spin and change color */}
+          <div className={styles.halfCircle}></div>
+          <div className={styles.halfCircle}></div>
         </div>
       )}
       {message && <p className={styles.loadingText}>{message}</p>}

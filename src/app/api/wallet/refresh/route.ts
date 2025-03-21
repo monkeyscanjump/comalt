@@ -3,17 +3,25 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { extractTokenFromHeader, refreshSession } from '@/utils/auth';
 import { clearCachedToken } from '@/services/tokenCache';
+import { errorResponse, getAuthToken } from '@/utils/api';
 
 export async function POST(request: NextRequest) {
   try {
     // Get the authorization header
-    const authHeader = request.headers.get('Authorization');
-    const token = extractTokenFromHeader(authHeader);
+    const token = getAuthToken(request);
 
     if (!token) {
       return NextResponse.json({
         error: 'Missing or invalid token',
         errorCode: 'TOKEN_MISSING'
+      }, { status: 401 });
+    }
+
+    // Basic format validation - JWT tokens have format: header.payload.signature
+    if (!token.includes('.') || token.split('.').length !== 3) {
+      return NextResponse.json({
+        error: 'Invalid token format',
+        errorCode: 'INVALID_TOKEN_FORMAT'
       }, { status: 401 });
     }
 
@@ -27,17 +35,17 @@ export async function POST(request: NextRequest) {
       }, { status: 401 });
     }
 
-    // Clear the old token from cache using the service
+    // Clear the old token from cache
     clearCachedToken(token);
 
     // Return the new token
     return NextResponse.json({
-      success: true,
-      token: newToken
+      token: newToken,
+      success: true
     });
-
   } catch (error) {
     console.error('Token refresh error:', error);
+
     return NextResponse.json(
       {
         error: 'Token refresh failed',

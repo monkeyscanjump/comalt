@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/auth';
-import { LoadingState } from '@/components/auth/LoadingState';
+import { LoadingState } from '@/components/LoadingState';
 import { ConnectWallet } from '@/components/auth/ConnectWallet';
 import { AccessDenied } from '@/components/auth/AccessDenied';
 import { SignatureRequest } from '@/components/auth/SignatureRequest';

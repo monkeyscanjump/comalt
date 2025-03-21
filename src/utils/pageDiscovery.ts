@@ -12,13 +12,13 @@ const PAGE_REGISTRY: Record<string, {
   '/': {
     title: 'Dashboard',
     icon: FaHome,
-    order: 10,
+    order: 1,
     showInNav: true
   },
   '/downloads': {
     title: 'Downloads',
     icon: FaDownload,
-    order: 20,
+    order: 2,
     showInNav: true
   },
   // Add more pages here - they'll automatically appear in navigation

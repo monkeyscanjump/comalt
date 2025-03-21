@@ -7,6 +7,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-shrink: 0;
   z-index: var(--z-index-fixed);
   padding: 0 var(--space-md); /* Remove vertical padding, keep horizontal */
 }
