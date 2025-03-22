@@ -7,14 +7,19 @@
 }
 
 .card {
-  background-color: var(--color-surface);
+  background-color: var(--color-surface-light);
   border-radius: var(--border-radius-lg);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-sm);
   padding: var(--space-xl);
   max-width: 500px;
   width: 100%;
   text-align: center;
   border: 1px solid var(--color-border);
+  transition: box-shadow var(--transition-fast);
+}
+
+.card:hover {
+  box-shadow: var(--shadow-md);
 }
 
 .title {
@@ -23,20 +28,33 @@
   margin-top: 0;
   margin-bottom: var(--space-lg);
   font-weight: var(--font-weight-semibold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+}
+
+.title svg {
+  color: var(--color-primary);
 }
 
 .info {
   color: var(--color-text-secondary);
   margin-bottom: var(--space-xl);
   line-height: 1.5;
+  max-width: 450px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .rejectedMessage {
-  background-color: var(--color-surface-light);
+  background-color: rgba(var(--color-error-rgb), 0.1);
   border-left: 4px solid var(--color-error);
   padding: var(--space-md);
   margin-bottom: var(--space-xl);
   text-align: left;
+  border-radius: var(--border-radius-md);
+  box-shadow: var(--shadow-sm);
 }
 
 .rejectedMessage p {
@@ -45,12 +63,14 @@
 }
 
 .error {
-  background-color: var(--color-surface-light);
+  background-color: rgba(var(--color-error-rgb), 0.1);
   color: var(--color-error);
   padding: var(--space-md);
   border-radius: var(--border-radius-md);
   margin-bottom: var(--space-lg);
   border-left: 4px solid var(--color-error);
+  box-shadow: var(--shadow-sm);
+  text-align: left;
 }
 
 .signButton {
@@ -62,36 +82,145 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
-  transition: background-color var(--transition-fast);
+  transition: all var(--transition-fast);
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  margin: 0 auto;
 }
 
 .signButton:hover {
   background-color: var(--color-primary-dark);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
 }
 
 .signButton:active {
   transform: translateY(1px);
+  box-shadow: none;
+}
+
+.signButton:focus {
+  outline: 2px solid var(--color-primary-light);
+  outline-offset: 2px;
 }
 
 .signButton:disabled {
   background-color: var(--color-text-tertiary);
   cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.signButton svg {
+  color: white;
+}
+
+/* Loading state */
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-md);
+  margin: var(--space-lg) 0;
+}
+
+.loadingIcon {
+  animation: spin 1s linear infinite;
+  color: var(--color-primary);
+  font-size: var(--font-size-xl);
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.loadingText {
+  color: var(--color-text-secondary);
 }
 
 /* Success state */
 .success {
-  background-color: var(--color-surface-light);
+  background-color: rgba(var(--color-success-rgb), 0.1);
   color: var(--color-success);
   padding: var(--space-md);
   border-radius: var(--border-radius-md);
   margin-bottom: var(--space-lg);
   border-left: 4px solid var(--color-success);
+  text-align: left;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+}
+
+.success svg {
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+/* Message to sign */
+.messageContainer {
+  background-color: var(--color-bg);
+  border-radius: var(--border-radius-md);
+  padding: var(--space-md);
+  margin: var(--space-lg) auto;
+  border: 1px solid var(--color-border);
+  text-align: left;
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  white-space: pre-wrap;
+  overflow-x: auto;
+  line-height: 1.6;
+  max-width: 450px;
+}
+
+/* Button container */
+.buttonContainer {
+  display: flex;
+  gap: var(--space-md);
+  margin-top: var(--space-lg);
+  justify-content: center;
+}
+
+/* Dark mode adjustments */
+html[data-theme="dark"] .card {
+  background-color: var(--color-surface);
+}
+
+html[data-theme="dark"] .rejectedMessage {
+  background-color: rgba(var(--color-error-rgb), 0.15);
+}
+
+html[data-theme="dark"] .error {
+  background-color: rgba(var(--color-error-rgb), 0.15);
+}
+
+html[data-theme="dark"] .success {
+  background-color: rgba(var(--color-success-rgb), 0.15);
+}
+
+html[data-theme="dark"] .messageContainer {
+  background-color: var(--color-surface-dark);
 }
 
 /* Responsive adjustments */
 @media (max-width: 600px) {
+  .container {
+    padding: var(--space-md);
+  }
+
   .card {
     padding: var(--space-lg);
+    width: 90%;
   }
 
   .title {
@@ -100,5 +229,31 @@
 
   .info {
     font-size: var(--font-size-sm);
+    margin-bottom: var(--space-lg);
+  }
+
+  .buttonContainer {
+    flex-direction: column;
+  }
+
+  .signButton {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .container {
+    padding: var(--space-sm);
+    min-height: 50vh;
+  }
+
+  .card {
+    padding: var(--space-md);
+    width: 95%;
+  }
+
+  .messageContainer {
+    font-size: var(--font-size-xs);
+    padding: var(--space-sm);
   }
 }

@@ -2,17 +2,26 @@
 .authContainer {
   max-width: 600px;
   margin: var(--space-xl) auto;
-  background-color: var(--color-surface);
+  background-color: var(--color-surface-light);
   border-radius: var(--border-radius-lg);
   padding: var(--space-xl);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-sm);
   border: 1px solid var(--color-border);
+  transition: box-shadow var(--transition-fast);
+  text-align: center;
+}
+
+.authContainer:hover {
+  box-shadow: var(--shadow-md);
 }
 
 /* Connect Wallet Styles */
 .connectContainer {
-  text-align: center;
   padding: var(--space-lg) var(--space-md);
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .connectContainer h2 {
@@ -20,6 +29,14 @@
   margin-bottom: var(--space-lg);
   font-size: var(--font-size-xl);
   font-weight: var(--font-weight-semibold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+}
+
+.connectContainer h2 svg {
+  color: var(--color-primary);
 }
 
 .connectDescription {
@@ -36,6 +53,8 @@
   flex-direction: column;
   gap: var(--space-md);
   margin-top: var(--space-lg);
+  width: 100%;
+  max-width: 400px;
 }
 
 /* Access Denied Styles */
@@ -44,24 +63,32 @@
   border-left: 4px solid var(--color-error);
   padding: var(--space-lg);
   border-radius: var(--border-radius-md);
-  margin: var(--space-lg) 0;
+  margin: var(--space-lg) auto;
+  box-shadow: var(--shadow-sm);
+  max-width: 600px;
+  text-align: left;
 }
 
 .accessDenied h2 {
   color: var(--color-error);
   margin-bottom: var(--space-md);
   font-weight: var(--font-weight-semibold);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
 }
 
 .accessDeniedIcon {
   font-size: 2.5rem;
   color: var(--color-error);
   margin-bottom: var(--space-md);
+  display: flex;
+  justify-content: center;
 }
 
 .walletAddress {
   font-family: var(--font-family-mono);
-  background-color: var(--color-surface-dark);
+  background-color: rgba(var(--color-primary-rgb), 0.1);
   padding: var(--space-sm) var(--space-md);
   border-radius: var(--border-radius-md);
   margin-top: var(--space-md);
@@ -69,39 +96,61 @@
   font-size: var(--font-size-xs);
   display: inline-block;
   color: var(--color-text);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.2);
 }
 
 /* Signature Container */
 .signatureContainer {
-  background-color: var(--color-surface);
+  background-color: var(--color-surface-light);
   border-radius: var(--border-radius-lg);
-  padding: var(--space-lg);
-  margin: var(--space-lg) 0;
+  padding: var(--space-xl);
+  margin: var(--space-lg) auto;
   box-shadow: var(--shadow-sm);
   border: 1px solid var(--color-border);
+  transition: box-shadow var(--transition-fast);
+  max-width: 600px;
+  text-align: center;
+}
+
+.signatureContainer:hover {
+  box-shadow: var(--shadow-md);
 }
 
 .signatureContainer h2 {
   margin-bottom: var(--space-md);
   color: var(--color-text);
   font-weight: var(--font-weight-semibold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  font-size: var(--font-size-xl);
+}
+
+.signatureContainer h2 svg {
+  color: var(--color-primary);
 }
 
 .signaturePrompt {
   margin-bottom: var(--space-lg);
   color: var(--color-text-secondary);
   line-height: 1.5;
+  max-width: 450px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 /* Message Boxes */
 .rejectionMessage,
 .recoveryMessage {
-  background-color: var(--color-surface-light);
+  background-color: rgba(var(--color-warning-rgb), 0.1);
   border-left: 4px solid var(--color-warning);
   padding: var(--space-md);
   margin: var(--space-md) 0;
   border-radius: var(--border-radius-md);
   color: var(--color-text);
+  box-shadow: var(--shadow-sm);
+  text-align: left;
 }
 
 .rejectionMessage p,
@@ -123,11 +172,14 @@
 
 /* Error Message */
 .errorMessage {
-  background-color: var(--color-surface-light);
+  background-color: rgba(var(--color-error-rgb), 0.1);
   border-left: 4px solid var(--color-error);
   padding: var(--space-md);
-  margin: var(--space-md) 0;
+  margin: var(--space-md) auto;
   border-radius: var(--border-radius-md);
+  box-shadow: var(--shadow-sm);
+  text-align: left;
+  max-width: 600px;
 }
 
 .errorText {
@@ -144,12 +196,15 @@
 
 /* Signing Message */
 .signingMessage {
-  background-color: var(--color-surface-light);
+  background-color: rgba(var(--color-primary-rgb), 0.1);
   border-left: 4px solid var(--color-primary);
   padding: var(--space-md);
-  margin: var(--space-md) 0;
+  margin: var(--space-md) auto;
   border-radius: var(--border-radius-md);
   color: var(--color-text);
+  box-shadow: var(--shadow-sm);
+  max-width: 600px;
+  text-align: left;
 }
 
 .signingInProgress {
@@ -158,6 +213,38 @@
   justify-content: center;
   gap: var(--space-md);
   margin: var(--space-lg) 0;
+}
+
+.signingInProgress svg {
+  animation: spin 1s linear infinite;
+  color: var(--color-primary);
+  font-size: var(--font-size-xl);
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Message to sign styling */
+.messageContainer {
+  background-color: var(--color-bg);
+  border-radius: var(--border-radius-md);
+  padding: var(--space-md);
+  margin: var(--space-lg) auto;
+  border: 1px solid var(--color-border);
+  text-align: left;
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  white-space: pre-wrap;
+  overflow-x: auto;
+  line-height: 1.6;
+  max-width: 500px;
 }
 
 /* Button Styles */
@@ -176,15 +263,23 @@
   border-radius: var(--border-radius-md);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
-  transition: background-color var(--transition-fast), transform var(--transition-fast);
+  transition: all var(--transition-fast);
+  font-size: var(--font-size-sm);
+  height: 38px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
 }
 
 .primaryButton:hover {
   background-color: var(--color-primary-dark);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
 }
 
 .primaryButton:active {
   transform: translateY(1px);
+  box-shadow: none;
 }
 
 .primaryButton:focus {
@@ -195,25 +290,40 @@
 .primaryButton:disabled {
   background-color: var(--color-text-tertiary);
   cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.primaryButton svg {
+  color: white;
 }
 
 .secondaryButton {
-  background-color: transparent;
-  color: var(--color-primary);
-  border: 1px solid var(--color-primary);
+  background-color: var(--color-bg-light);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
   padding: var(--space-sm) var(--space-lg);
   border-radius: var(--border-radius-md);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
-  transition: background-color var(--transition-fast), color var(--transition-fast), transform var(--transition-fast);
+  transition: all var(--transition-fast);
+  font-size: var(--font-size-sm);
+  height: 38px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
 }
 
 .secondaryButton:hover {
   background-color: var(--color-bg-hover);
+  border-color: var(--color-text-secondary);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
 }
 
 .secondaryButton:active {
   transform: translateY(1px);
+  box-shadow: none;
 }
 
 .retryContainer {
@@ -239,7 +349,7 @@
 
 .retryButton {
   padding: var(--space-xs) var(--space-md);
-  background-color: var(--color-surface);
+  background-color: var(--color-bg-light);
   border: 1px solid var(--color-border);
   border-radius: var(--border-radius-md);
   color: var(--color-primary);
@@ -247,29 +357,124 @@
   font-size: var(--font-size-sm);
   cursor: pointer;
   transition: all var(--transition-fast);
+  height: 32px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
 }
 
 .retryButton:hover {
-  background-color: var(--color-surface-hover);
+  background-color: var(--color-bg-hover);
   border-color: var(--color-primary);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.retryButton:active {
+  transform: translateY(1px);
+  box-shadow: none;
 }
 
 .retryButtonSecondary {
-  background-color: var(--color-surface-secondary);
+  color: var(--color-text-secondary);
 }
 
 .retryButtonSecondary:hover {
-  background-color: var(--color-surface-secondary-hover);
+  border-color: var(--color-text-secondary);
+}
+
+/* Success state */
+.success {
+  background-color: rgba(var(--color-success-rgb), 0.1);
+  color: var(--color-success);
+  padding: var(--space-md);
+  border-radius: var(--border-radius-md);
+  margin: var(--space-lg) auto;
+  border-left: 4px solid var(--color-success);
+  text-align: left;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  max-width: 600px;
+}
+
+.success svg {
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+/* Dark mode specific adjustments */
+html[data-theme="dark"] .authContainer,
+html[data-theme="dark"] .signatureContainer {
+  background-color: var(--color-surface);
+}
+
+html[data-theme="dark"] .walletAddress {
+  background-color: rgba(var(--color-primary-rgb), 0.15);
+  border-color: rgba(var(--color-primary-rgb), 0.3);
+}
+
+html[data-theme="dark"] .rejectionMessage,
+html[data-theme="dark"] .recoveryMessage {
+  background-color: rgba(var(--color-warning-rgb), 0.15);
+}
+
+html[data-theme="dark"] .errorMessage {
+  background-color: rgba(var(--color-error-rgb), 0.15);
+}
+
+html[data-theme="dark"] .signingMessage {
+  background-color: rgba(var(--color-primary-rgb), 0.15);
+}
+
+html[data-theme="dark"] .success {
+  background-color: rgba(var(--color-success-rgb), 0.15);
+}
+
+html[data-theme="dark"] .messageContainer {
+  background-color: var(--color-surface-dark);
 }
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
-  .authContainer {
+  .authContainer,
+  .signatureContainer {
     padding: var(--space-lg);
     margin: var(--space-lg) auto;
+    width: 90%;
   }
 
   .buttonContainer {
     flex-direction: column;
+  }
+
+  .primaryButton,
+  .secondaryButton {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .authContainer,
+  .signatureContainer {
+    padding: var(--space-md);
+    margin: var(--space-md) auto;
+    width: 95%;
+  }
+
+  .connectContainer h2,
+  .signatureContainer h2 {
+    font-size: var(--font-size-lg);
+  }
+
+  .accessDeniedIcon {
+    font-size: 2rem;
+  }
+
+  .messageContainer {
+    font-size: var(--font-size-xs);
+    padding: var(--space-sm);
   }
 }

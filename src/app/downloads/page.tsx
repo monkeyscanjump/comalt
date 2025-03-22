@@ -6,10 +6,7 @@ import { FaDownload } from 'react-icons/fa';
 
 export default function DownloadsPage() {
   return (
-    <PageWrapper
-      title="Downloads"
-      icon={FaDownload}
-    >
+    <PageWrapper title="Downloads">
       <div>
         <h1>Downloads</h1>
         <p>Your download history will be displayed here.</p>

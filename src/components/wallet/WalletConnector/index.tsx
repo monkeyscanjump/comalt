@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/auth';
 import { config } from '@/config';
 import styles from './WalletConnector.module.css';
 import AccountSelector from '@/components/wallet/AccountSelector';
+import { FiX, FiLogIn, FiLoader } from 'react-icons/fi';
 
 /**
  * WalletConnector component handles wallet connection state display.
@@ -17,14 +18,29 @@ const WalletConnector = () => {
     isConnecting,
     connect,
     logout,
-    error,
+    error: authError,
     showAccountSelector,
     isWalletConnected,
-    walletAddress
+    walletAddress,
+    isAuthenticated
   } = useAuth();
 
   // Local state for persisting wallet name
   const [persistentName, setPersistentName] = useState<string | null>(null);
+  // Local error state to properly manage visibility
+  const [localError, setLocalError] = useState<string | null>(null);
+
+  // Update local error state when auth error changes
+  useEffect(() => {
+    setLocalError(authError);
+  }, [authError]);
+
+  // Clear error when successfully connected or authenticated
+  useEffect(() => {
+    if (isWalletConnected || isAuthenticated) {
+      setLocalError(null);
+    }
+  }, [isWalletConnected, isAuthenticated]);
 
   /**
    * Effect for managing wallet name persistence
@@ -53,13 +69,19 @@ const WalletConnector = () => {
    * Handles wallet connection/disconnection
    */
   const handleButtonClick = () => {
+    // Clear local error whenever button is clicked
+    setLocalError(null);
+
     if (isWalletConnected || selectedAccount) {
       logout();
       // Also clear persistent name
       setPersistentName(null);
       localStorage.removeItem(config.auth.walletName);
     } else {
-      connect();
+      connect().catch(() => {
+        // Error handling is done in the Auth Provider
+        // Here we just ensure the connect promise doesn't cause unhandled rejection
+      });
     }
   };
 
@@ -80,50 +102,56 @@ const WalletConnector = () => {
 
   /**
    * Get button styling based on connection state
+   * Only use error styling if localError is set
    */
   const getButtonClasses = () => {
-    let classes = styles['wallet-button'];
-
-    if (error) {
-      classes += ` ${styles['wallet-button-error']}`;
+    if (localError) {
+      return styles.walletButtonError;
     } else if (isWalletConnected || selectedAccount) {
-      classes += ` ${styles['wallet-button-connected']}`;
+      return styles.walletButtonConnected;
     } else {
-      classes += ` ${styles['wallet-button-connect']}`;
+      return styles.walletButtonConnect;
     }
-
-    if (isConnecting) {
-      classes += ` ${styles['connect-loading']}`;
-    }
-
-    return classes;
   };
 
   return (
-    <div className={styles['wallet-connector']}>
+    <div className={styles.walletConnector}>
       {!isWalletConnected && !selectedAccount ? (
         // Disconnected state button
         <button
           onClick={handleButtonClick}
           disabled={isConnecting}
           className={getButtonClasses()}
-          title={error || 'Connect to wallet'}
+          title={localError || 'Connect to wallet'}
           data-testid="connect-button"
         >
-          {isConnecting ? 'Connecting...' : 'Connect Wallet'}
+          {isConnecting ? (
+            <>
+              <FiLoader className={styles.loadingIcon} />
+              <span>Connecting...</span>
+            </>
+          ) : (
+            <>
+              <FiLogIn />
+              <span>Connect Wallet</span>
+            </>
+          )}
         </button>
       ) : (
         // Connected state button
         <button
           className={getButtonClasses()}
           onClick={handleButtonClick}
-          title={error ? error : 'Click to disconnect'}
+          title={localError ? localError : 'Click to disconnect'}
           data-testid="wallet-button"
         >
-          <span className={styles['wallet-name']}>{displayName}</span>
-          <span className={styles['wallet-divider']}> | </span>
-          <span className={styles['wallet-address']}>{shortAddress}</span>
-          <span className={styles['disconnect-icon']} title="Disconnect">✕</span>
+          <div className={styles.walletInfo}>
+            <span className={styles.walletName}>{displayName}</span>
+            <span className={styles.walletAddress}>{shortAddress}</span>
+          </div>
+          <div className={styles.disconnectButton} title="Disconnect">
+            <FiX />
+          </div>
         </button>
       )}
 

@@ -2,19 +2,21 @@
   flex: 1;
   margin: 0 var(--space-md);
   position: relative;
-  height: 100%; /* Ensure full height */
+  height: 100%;
+  z-index: 10;
 }
 
 .tabsContainer {
   display: flex;
   position: relative;
-  height: 100%; /* Full height */
+  height: 100%;
+  gap: var(--space-xs);
 }
 
 .tab {
   display: flex;
   align-items: center;
-  padding: 0 var(--space-md); /* Remove vertical padding */
+  padding: 0 var(--space-md);
   color: var(--color-text-secondary);
   text-decoration: none;
   font-weight: var(--font-weight-medium);
@@ -23,17 +25,24 @@
   transition: all var(--transition-fast);
   white-space: nowrap;
   z-index: 2;
-  height: 100%; /* Ensure full height */
+  height: 100%;
+  border-radius: var(--border-radius-sm) var(--border-radius-sm) 0 0;
 }
 
 .tab:hover {
   color: var(--color-primary);
-  background-color: var(--color-bg-hover);
+  background-color: rgba(var(--color-primary-rgb), 0.05);
   text-decoration: none;
+  transform: translateY(-1px);
+}
+
+.tab:active {
+  transform: translateY(0);
 }
 
 .activeTab {
   color: var(--color-primary);
+  font-weight: var(--font-weight-semibold);
 }
 
 .tabIcon {
@@ -41,10 +50,21 @@
   display: flex;
   align-items: center;
   font-size: var(--font-size-md);
+  color: inherit;
+  transition: transform var(--transition-fast);
+}
+
+.activeTab .tabIcon {
+  color: var(--color-primary);
+}
+
+.tab:hover .tabIcon {
+  transform: translateY(-1px);
 }
 
 .tabText {
   white-space: nowrap;
+  position: relative;
 }
 
 /* Animated indicator for active tab */
@@ -56,42 +76,216 @@
   border-radius: var(--border-radius-xs) var(--border-radius-xs) 0 0;
   transition: transform var(--transition-normal), width var(--transition-normal);
   z-index: 1;
+  box-shadow: 0 -1px 4px rgba(var(--color-primary-rgb), 0.3);
+}
+
+/* Navigation title for mobile view */
+.mobileNavTitle {
+  display: none;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  margin-right: auto;
+  padding-left: var(--space-sm);
+}
+
+/* Badge for notifications or updates */
+.badge {
+  position: absolute;
+  top: 6px;
+  right: 2px;
+  background-color: var(--color-error);
+  color: white;
+  border-radius: var(--border-radius-full);
+  min-width: 16px;
+  height: 16px;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  border: 1px solid white;
+  transform: translate(50%, -50%);
+  z-index: 3;
+}
+
+/* Responsive dropdown for mobile */
+.mobileNavDropdown {
+  display: none;
+  position: relative;
+}
+
+.dropdownButton {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
+  background: transparent;
+  border: none;
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  border-radius: var(--border-radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.dropdownButton:hover {
+  background-color: var(--color-bg-hover);
+}
+
+.dropdownButton svg {
+  color: var(--color-text-secondary);
+  transition: transform var(--transition-fast);
+}
+
+.dropdownOpen .dropdownButton svg {
+  transform: rotate(180deg);
+}
+
+.dropdownMenu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background-color: var(--color-surface-light);
+  border-radius: var(--border-radius-md);
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--color-border);
+  z-index: 100;
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition: max-height var(--transition-normal), opacity var(--transition-normal);
+}
+
+.dropdownOpen .dropdownMenu {
+  max-height: 300px;
+  opacity: 1;
+}
+
+.dropdownItem {
+  display: flex;
+  align-items: center;
+  padding: var(--space-sm) var(--space-md);
+  color: var(--color-text);
+  text-decoration: none;
+  font-size: var(--font-size-sm);
+  transition: background-color var(--transition-fast);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.dropdownItem:last-child {
+  border-bottom: none;
+}
+
+.dropdownItem:hover {
+  background-color: var(--color-bg-hover);
+}
+
+.dropdownItem.active {
+  background-color: rgba(var(--color-primary-rgb), 0.1);
+  color: var(--color-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.dropdownIcon {
+  margin-right: var(--space-sm);
+  color: var(--color-text-secondary);
+}
+
+.active .dropdownIcon {
+  color: var(--color-primary);
 }
 
 /* Media queries */
 @media (max-width: 768px) {
   .navContainer {
-    flex: 1 1 100%; /* Take up full row width on mobile */
+    flex: 1 1 100%;
     margin: 0;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
-    height: 40px; /* Fixed height for mobile */
-    order: 3; /* Place navigation below logo and wallet */
+    height: 44px; /* Slightly taller for better touch targets */
+    order: 3;
+    position: relative;
+    background-color: var(--color-bg-light);
+    border-top: 1px solid var(--color-border);
+    box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.05);
   }
 
   .tabsContainer {
-    min-width: min-content; /* Ensure tabs don't shrink too much */
+    min-width: min-content;
+    padding: 0 var(--space-sm);
   }
 
   .tab {
-    padding: 0 var(--space-sm); /* Slightly reduce padding on mobile */
-    height: 40px; /* Match container height */
+    padding: 0 var(--space-sm);
+    height: 44px;
   }
 
-  /* Hide tab text on very small screens and just show icons */
-  @media (max-width: 480px) {
-    .tabText {
-      display: none; /* Hide text on very small screens */
-    }
-
-    .tabIcon {
-      margin-right: 0; /* No margin needed when no text */
-      font-size: var(--font-size-lg); /* Make icons slightly larger */
-    }
-
-    .tab {
-      padding: 0 var(--space-xs); /* Reduce padding further */
-      justify-content: center; /* Center icons */
-    }
+  .activeIndicator {
+    height: 2px;
+    bottom: 0;
   }
+
+  /* Styles for dropdown navigation on smaller screens */
+  .mobileNavDropdown {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    max-width: 200px;
+    margin: 0 auto;
+  }
+}
+
+/* Hide tab text on very small screens and just show icons */
+@media (max-width: 480px) {
+  .tabText {
+    display: none;
+  }
+
+  .tabIcon {
+    margin-right: 0;
+    font-size: var(--font-size-lg);
+  }
+
+  .tab {
+    padding: 0 var(--space-sm);
+    justify-content: center;
+  }
+
+  .mobileNavTitle {
+    display: block;
+  }
+
+  .activeIndicator {
+    height: 3px;
+  }
+
+  .badge {
+    top: 4px;
+    right: 4px;
+  }
+}
+
+/* Dark mode specific adjustments */
+html[data-theme="dark"] .activeTab {
+  background-color: rgba(var(--color-primary-rgb), 0.15);
+}
+
+html[data-theme="dark"] .tab:hover {
+  background-color: rgba(var(--color-primary-rgb), 0.1);
+}
+
+html[data-theme="dark"] .activeIndicator {
+  box-shadow: 0 -1px 4px rgba(var(--color-primary-rgb), 0.5);
+}
+
+html[data-theme="dark"] .dropdownMenu {
+  background-color: var(--color-surface);
+  border-color: var(--color-border-strong);
+}
+
+html[data-theme="dark"] .dropdownItem {
+  border-color: var(--color-border-strong);
 }
