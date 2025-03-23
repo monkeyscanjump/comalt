@@ -7,6 +7,7 @@
   gap: var(--space-md);
   min-height: 400px;
   width: 100%;
+  margin: auto;
 }
 
 /* Simplified Spinner */

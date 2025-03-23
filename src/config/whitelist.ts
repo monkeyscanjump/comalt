@@ -128,25 +128,47 @@ export function hasWhitelistedAddresses(): boolean {
 
 /**
  * Check if a wallet address is allowed to access the application
+ * @param address The wallet address to check
+ * @param hasValidToken Optional flag indicating if user already has a valid JWT token
  */
-export async function isAddressAllowedAsync(address: string | null | undefined): Promise<boolean> {
+export async function isAddressAllowedAsync(
+  address: string | null | undefined,
+  hasValidToken = false
+): Promise<boolean> {
   if (!address) return false;
 
   try {
+    // Short-circuit: If user has a valid JWT, they've already been validated
+    // Set a longer-lived cache entry and return true immediately
+    if (hasValidToken) {
+      const normalizedAddress = normalizeAddress(address);
+      const now = Date.now();
+      // Cache this validation for a longer time - they have a valid token
+      addressValidationCache.set(normalizedAddress, {
+        isAllowed: true,
+        timestamp: now
+      });
+      return true;
+    }
+
     // Normalize the address for consistent comparison
     const normalizedAddress = normalizeAddress(address);
 
     // Debug log for address checking
-    console.log(`Checking access for address: ${address.slice(0, 6)}...${address.slice(-4)}`, {
-      original: address,
-      normalized: normalizedAddress
-    });
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`Checking access for address: ${address.slice(0, 6)}...${address.slice(-4)}`, {
+        original: address,
+        normalized: normalizedAddress
+      });
+    }
 
     // Check cache first (using normalized address)
     const now = Date.now();
     const cached = addressValidationCache.get(normalizedAddress);
     if (cached && (now - cached.timestamp) < CACHE_TTL) {
-      console.log(`Using cached result for ${normalizedAddress.slice(0, 6)}...: ${cached.isAllowed}`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Using cached result for ${normalizedAddress.slice(0, 6)}...: ${cached.isAllowed}`);
+      }
       return cached.isAllowed;
     }
 

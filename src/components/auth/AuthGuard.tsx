@@ -139,7 +139,13 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
    * to avoid content flash
    */
   if (!isMounted) {
-    return <div className="auth-loading-container"><LoadingState /></div>;
+    return (
+      <div className={styles.authPageContainer}>
+        <div className={styles.loadingContainer}>
+          <LoadingState />
+        </div>
+      </div>
+    );
   }
 
   /**
@@ -153,60 +159,80 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   // Show loading state while authenticating
   if (isLoading) {
-    return <LoadingState />;
+    return (
+      <div className={styles.authPageContainer}>
+        <div className={styles.loadingContainer}>
+          <LoadingState />
+        </div>
+      </div>
+    );
   }
 
   // Authentication flow for non-public mode
   if (!isWalletConnected) {
-    return <ConnectWallet showTitle={true} />;
+    return (
+      <div className={styles.authPageContainer}>
+        <ConnectWallet showTitle={true} />
+      </div>
+    );
   }
 
   // Show loading state while checking allowlist
   if (isWalletConnected && isCheckingAllowlist) {
     return (
-      <div className={styles.loadingContainer}>
-        <LoadingState message="Checking wallet permissions..." />
+      <div className={styles.authPageContainer}>
+        <div className={styles.loadingContainer}>
+          <LoadingState message="Checking wallet permissions..." />
 
-        {isAllowlistCheckStalled && (
-          <div className={styles.retryContainer}>
-            <p className={styles.retryText}>
-              This is taking longer than expected.
-            </p>
-            <div className={styles.retryButtonGroup}>
-              <button
-                className={styles.retryButton}
-                onClick={() => {
-                  // Force reload the page
-                  window.location.reload();
-                }}
-              >
-                Refresh Page
-              </button>
-              <button
-                className={`${styles.retryButton} ${styles.retryButtonSecondary}`}
-                onClick={() => {
-                  // Restart auth completely
-                  logout();
-                  setTimeout(() => {
+          {isAllowlistCheckStalled && (
+            <div className={styles.retryContainer}>
+              <p className={styles.retryText}>
+                This is taking longer than expected.
+              </p>
+              <div className={styles.retryButtonGroup}>
+                <button
+                  className={styles.retryButton}
+                  onClick={() => {
+                    // Force reload the page
                     window.location.reload();
-                  }, 100);
-                }}
-              >
-                Restart Authentication
-              </button>
+                  }}
+                >
+                  Refresh Page
+                </button>
+                <button
+                  className={`${styles.retryButton} ${styles.retryButtonSecondary}`}
+                  onClick={() => {
+                    // Restart auth completely
+                    logout();
+                    setTimeout(() => {
+                      window.location.reload();
+                    }, 100);
+                  }}
+                >
+                  Restart Authentication
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     );
   }
 
   if (isWalletConnected && !isAllowed) {
-    return <AccessDenied walletAddress={walletAddress} />;
+    return (
+      <div className={styles.authPageContainer}>
+        <AccessDenied walletAddress={walletAddress} />
+      </div>
+    );
   }
 
   if (isWalletConnected && isAllowed && !isAuthenticated) {
-    return <SignatureRequest wasRejected={wasSignatureRejected} />;
+    return (
+      <div className={styles.authPageContainer}>
+        <SignatureRequest wasRejected={wasSignatureRejected} />
+      </div>
+    );
   }
 
   if (isAuthenticated && isAllowed) {
@@ -214,5 +240,9 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   }
 
   // Fallback
-  return <ConnectWallet showTitle={false} />;
+  return (
+    <div className={styles.authPageContainer}>
+      <ConnectWallet showTitle={false} />
+    </div>
+  );
 }

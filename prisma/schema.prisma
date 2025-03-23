@@ -26,3 +26,19 @@ model Session {
   expiresAt DateTime
   createdAt DateTime @default(now())
 }
+
+model AppPackage {
+  id               String    @id @default(cuid())
+  name             String
+  description      String?
+  githubUrl        String
+  installCommands  String    // Store as JSON string
+  isInstalled      Boolean   @default(false)
+  installedVersion String?
+  installPath      String?
+  installedAt      DateTime?
+  lastCheckedAt    DateTime?
+  lastError        String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}

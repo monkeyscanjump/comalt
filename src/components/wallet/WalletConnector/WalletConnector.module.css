@@ -55,21 +55,21 @@
   margin-right: var(--space-xs);
 }
 
-/* Connected button styles - using a monochrome color scheme */
+/* Connected button styles - LIGHT THEME (default) */
 .walletButtonConnected {
-  background-color: var(--color-bg-dark, #444);
-  color: white;
+  background-color: var(--color-surface-light, #f5f5f5);
+  color: var(--color-text-primary, #333);
   padding: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  min-width: 200px;
+  border: 1px solid var(--color-border, #ddd);
 }
 
 .walletButtonConnected:hover {
-  background-color: var(--color-text-secondary, #555);
+  background-color: var(--color-bg-hover, #eaeaea);
   transform: translateY(-1px);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
 .walletButtonConnected:active {
@@ -94,7 +94,7 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  padding: var(--space-xs) var(--space-md);
+  padding: var(--space-xs) 0 var(--space-xs) var(--space-md);
   flex: 1;
   overflow: hidden;
   line-height: 1.2;
@@ -117,20 +117,20 @@
   white-space: nowrap;
 }
 
-/* Disconnect button */
+/* Disconnect button - LIGHT THEME (default) */
 .disconnectButton {
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: rgba(0, 0, 0, 0.2);
+  background-color: rgba(0, 0, 0, 0.05);
   height: 100%;
   padding: 0 var(--space-md);
   transition: all var(--transition-fast);
-  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  border-left: 1px solid var(--color-border, #ddd);
 }
 
 .disconnectButton:hover {
-  background-color: rgba(0, 0, 0, 0.3);
+  background-color: rgba(0, 0, 0, 0.1);
 }
 
 .walletButtonConnected:hover .disconnectButton {
@@ -152,19 +152,16 @@
 
 /* Media queries */
 @media (max-width: 480px) {
-  .walletButtonConnected {
-    min-width: 150px;
-  }
-
   .walletName {
     max-width: 80px;
   }
 }
 
-/* Dark mode adjustments */
+/* Dark mode adjustments - KEEP THESE THE SAME */
 html[data-theme="dark"] .walletButtonConnected {
   background-color: var(--color-surface, #333);
   border: 1px solid var(--color-border);
+  color: white;
 }
 
 html[data-theme="dark"] .walletButtonConnected:hover {
@@ -178,4 +175,5 @@ html[data-theme="dark"] .disconnectButton {
 
 html[data-theme="dark"] .walletButtonConnected:hover .disconnectButton {
   background-color: var(--color-error);
+  color: white;
 }

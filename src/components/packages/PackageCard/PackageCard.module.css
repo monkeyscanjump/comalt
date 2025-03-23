@@ -1,0 +1,238 @@
+.packageCard {
+  display: flex;
+  flex-direction: column;
+  border-radius: 10px;
+  overflow: hidden;
+  background-color: var(--color-surface-light);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  height: 100%;
+  box-shadow: var(--shadow-sm);
+}
+
+.packageCard:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--shadow-md);
+}
+
+.cardHeader {
+  padding: 20px 20px 10px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.cardHeader h3 {
+  margin: 0 0 10px;
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 8px;
+}
+
+.categoryBadge,
+.tagBadge,
+.installedBadge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.8rem;
+}
+
+.badgeIcon {
+  margin-right: 4px;
+}
+
+.description {
+  padding: 15px 20px;
+  color: var(--color-text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  flex: 1;
+}
+
+.details {
+  padding: 0 20px 15px;
+  font-size: 0.9rem;
+}
+
+.detailItem {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.detailLabel {
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.detailValue {
+  color: var(--color-text);
+}
+
+.pathButton {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--color-primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.9rem;
+}
+
+.pathButton:hover {
+  text-decoration: underline;
+}
+
+.githubInfo {
+  padding: 10px 20px;
+  border-top: 1px solid var(--color-border);
+}
+
+.githubLink {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-primary);
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.githubLink:hover {
+  text-decoration: underline;
+}
+
+.errorContainer {
+  margin-top: 10px;
+  padding: 10px;
+  background-color: rgba(var(--color-error-rgb), 0.1);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.errorIcon {
+  color: var(--color-error);
+  flex-shrink: 0;
+}
+
+.errorMessage {
+  color: var(--color-error);
+  font-size: 0.85rem;
+  word-break: break-word;
+}
+
+.commandsContainer {
+  padding: 10px 20px;
+  background-color: var(--color-surface-dark);
+  border-radius: 6px;
+  margin: 0 20px 15px;
+}
+
+.commandsTitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 8px;
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.commandsIcon {
+  color: var(--color-text-secondary);
+}
+
+.commandsList {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  max-height: 150px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.commandCode {
+  font-family: var(--font-family-mono);
+  font-size: 0.8rem;
+  background-color: var(--color-bg-hover);
+  padding: 4px 8px;
+  border-radius: 4px;
+  color: var(--color-text-secondary);
+  overflow-x: auto;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.actions {
+  padding: 15px 20px;
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: auto;
+}
+
+.button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  border: none;
+  outline: none;
+  font-size: 0.9rem;
+}
+
+.button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.buttonIcon {
+  font-size: 1rem;
+}
+
+.installButton {
+  background-color: var(--color-primary);
+  color: white;
+}
+
+.installButton:hover:not(:disabled) {
+  background-color: var(--color-primary-dark);
+}
+
+.uninstallButton {
+  background-color: var(--color-error);
+  color: white;
+}
+
+.uninstallButton:hover:not(:disabled) {
+  background-color: var(--color-error-dark);
+}
+
+.spinnerIcon {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

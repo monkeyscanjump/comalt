@@ -1,5 +1,6 @@
 import { IconType } from 'react-icons';
-import { FaHome, FaDownload, FaCog, FaUser, FaInfoCircle, FaFileAlt } from 'react-icons/fa';
+import { FaHome, FaCog, FaUser, FaInfoCircle, FaFileAlt } from 'react-icons/fa';
+import { FiPackage } from 'react-icons/fi';
 
 // Map of page paths to their metadata
 const PAGE_REGISTRY: Record<string, {
@@ -15,9 +16,9 @@ const PAGE_REGISTRY: Record<string, {
     order: 1,
     showInNav: true
   },
-  '/downloads': {
-    title: 'Downloads',
-    icon: FaDownload,
+  '/packages': {
+    title: 'Packages',
+    icon: FiPackage,
     order: 2,
     showInNav: true
   },
@@ -61,7 +62,7 @@ export function getIconForPath(path: string): IconType {
 
   // Fallback icons based on path patterns
   if (normalizedPath === '/') return FaHome;
-  if (normalizedPath.includes('download')) return FaDownload;
+  if (normalizedPath.includes('packages')) return FiPackage;
   if (normalizedPath.includes('settings')) return FaCog;
   if (normalizedPath.includes('user') || normalizedPath.includes('account')) return FaUser;
   if (normalizedPath.includes('about')) return FaInfoCircle;

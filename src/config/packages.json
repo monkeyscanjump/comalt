@@ -1,0 +1,88 @@
+{
+  "packages": [
+    {
+      "id": "node-red",
+      "name": "Node-RED",
+      "description": "Low-code programming for event-driven applications",
+      "githubUrl": "https://github.com/node-red/node-red.git",
+      "category": "development",
+      "tags": ["automation", "iot", "flow-based"],
+      "installCommands": [
+        "cd {{installPath}}",
+        "npm install",
+        "npm run build"
+      ],
+      "startCommand": "npm start",
+      "requirements": {
+        "node": ">=14.0.0"
+      },
+      "defaultInstallPath": "./packages/node-red"
+    },
+    {
+      "id": "portainer",
+      "name": "Portainer",
+      "description": "Making Docker and Kubernetes management easy",
+      "githubUrl": "https://github.com/portainer/portainer.git",
+      "category": "docker",
+      "tags": ["container", "management", "docker"],
+      "installCommands": [
+        "cd {{installPath}}",
+        "docker-compose up -d"
+      ],
+      "requirements": {
+        "docker": ">=20.10.0"
+      },
+      "defaultInstallPath": "./packages/portainer"
+    },
+    {
+      "id": "go-ethereum",
+      "name": "Geth",
+      "description": "Official Go implementation of the Ethereum protocol",
+      "githubUrl": "https://github.com/ethereum/go-ethereum.git",
+      "category": "blockchain",
+      "tags": ["ethereum", "blockchain", "crypto"],
+      "installCommands": [
+        "cd {{installPath}}",
+        "make geth"
+      ],
+      "startCommand": "./build/bin/geth",
+      "requirements": {
+        "go": ">=1.16.0"
+      },
+      "defaultInstallPath": "./packages/go-ethereum"
+    },
+    {
+      "id": "grafana",
+      "name": "Grafana",
+      "description": "The open and composable observability and data visualization platform",
+      "githubUrl": "https://github.com/grafana/grafana.git",
+      "category": "monitoring",
+      "tags": ["visualization", "metrics", "monitoring"],
+      "installCommands": [
+        "cd {{installPath}}",
+        "yarn install",
+        "yarn build"
+      ],
+      "startCommand": "yarn start",
+      "requirements": {
+        "node": ">=14.0.0",
+        "yarn": ">=1.22.0"
+      },
+      "defaultInstallPath": "./packages/grafana"
+    },
+    {
+      "id": "pm2",
+      "name": "PM2",
+      "description": "Production Process Manager for Node.js applications",
+      "githubUrl": "https://github.com/Unitech/pm2.git",
+      "category": "tools",
+      "tags": ["node", "process-manager", "production"],
+      "installCommands": [
+        "npm install pm2 -g"
+      ],
+      "requirements": {
+        "node": ">=10.0.0"
+      }
+    }
+  ]
+}

@@ -436,6 +436,25 @@ html[data-theme="dark"] .messageContainer {
   background-color: var(--color-surface-dark);
 }
 
+/* Auth Page Full-Screen Centering */
+.authPageContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-grow: 1;
+  width: 100%;
+  padding: var(--space-md);
+  background-color: var(--color-bg);
+}
+
+/* Add loading container animation */
+.loadingContainer {
+  width: 100%;
+  max-width: 600px;
+  text-align: center;
+  padding: var(--space-xl) var(--space-md);
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .authContainer,

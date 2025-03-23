@@ -56,7 +56,7 @@ export const SectionContainer: React.FC<SectionContainerProps> = ({
           {/* Refresh button - shown only for components that can be refreshed */}
           {canRefresh && onRefresh && (
             <button
-              className={styles.sectionRefreshButton}
+              className={styles.buttonIconCompact}
               onClick={onRefresh}
               disabled={isRefreshing}
               title={`Refresh ${title.toLowerCase()} information`}
@@ -69,7 +69,7 @@ export const SectionContainer: React.FC<SectionContainerProps> = ({
           {/* Collapse/expand button - only shown if collapsible */}
           {isCollapsible && onToggleCollapse && (
             <button
-              className={styles.collapseButton}
+              className={styles.buttonIconCompact}
               onClick={onToggleCollapse}
               title={isCollapsed ? "Expand section" : "Collapse section"}
               aria-label={isCollapsed ? "Expand section" : "Collapse section"}

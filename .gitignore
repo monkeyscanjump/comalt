@@ -57,6 +57,7 @@ Thumbs.db
 wallet.json
 uploads/
 downloads/
+/packages/
 
 # IDE specific files
 .idea/
@@ -76,3 +77,33 @@ downloads/
 *.ntvs*
 *.njsproj
 *.sln
+
+# Prisma specific files
+/prisma/*.db
+/prisma/*.db-journal
+/prisma/migrations/dev/
+/prisma/migrations/shadow/
+/prisma/dev.db
+/prisma/dev.db-journal
+node_modules/.prisma/
+.prisma/
+/prisma/generated/
+
+# Keep the Prisma schema and migrations
+!prisma/schema.prisma
+!prisma/migrations/**/migration.sql
+
+# Temporary files
+/tmp/
+.cache/
+.temp/
+
+# Log files
+logs/
+*.log
+
+# Operating System Files
+.directory
+.fuse_hidden*
+.Trash-*
+.nfs*

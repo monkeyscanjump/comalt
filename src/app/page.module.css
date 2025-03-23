@@ -94,6 +94,53 @@
   font-size: var(--font-size-lg);
 }
 
+/* ---------- Error Banner Styles ---------- */
+.errorBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: rgba(var(--color-error-rgb), 0.1);
+  border: 1px solid var(--color-error);
+  border-radius: var(--border-radius-md);
+  padding: var(--space-md) var(--space-lg);
+  margin-bottom: var(--space-lg);
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.errorContent {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+}
+
+.errorIcon {
+  color: var(--color-error);
+  font-size: var(--font-size-xl);
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.errorMessage {
+  flex: 1;
+}
+
+.errorText {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-error);
+  margin-bottom: var(--space-xs);
+}
+
+.errorHint {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  margin: 0;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 /* ---------- Card Styles ---------- */
 .card {
   background-color: var(--color-surface-light);
@@ -436,37 +483,29 @@
   gap: var(--space-sm);
 }
 
-.errorIcon {
-  color: var(--color-error);
-}
-
 .errorMessage {
   margin-bottom: var(--space-lg);
   color: var(--color-text);
 }
 
 /* ---------- Button Styling ---------- */
+/* Base button style - used for all buttons */
 .button {
-  background-color: var(--color-primary);
-  color: white;
-  border: none;
-  border-radius: var(--border-radius-md);
-  padding: var(--space-sm) var(--space-lg);
-  font-weight: var(--font-weight-medium);
-  cursor: pointer;
-  transition: all var(--transition-fast);
   display: flex;
   align-items: center;
+  justify-content: center;
+  border-radius: var(--border-radius-md);
+  font-weight: var(--font-weight-medium);
   font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
   height: 38px;
-}
-
-.buttonIcon {
-  margin-right: var(--space-sm);
+  border: none;
+  padding: 0 var(--space-lg);
+  gap: var(--space-sm);
 }
 
 .button:hover {
-  background-color: var(--color-primary-dark);
   transform: translateY(-1px);
   box-shadow: var(--shadow-sm);
 }
@@ -477,73 +516,103 @@
 }
 
 .button:disabled {
-  background-color: var(--color-text-tertiary);
   cursor: not-allowed;
+  opacity: 0.7;
   transform: none;
   box-shadow: none;
 }
 
-/* Settings button in header */
-.settingsButton {
+/* Primary button - default */
+.buttonPrimary {
+  composes: button;
+  background-color: var(--color-primary);
+  color: white;
+}
+
+.buttonPrimary:hover {
+  background-color: var(--color-primary-dark);
+}
+
+.buttonPrimary:disabled {
+  background-color: var(--color-text-tertiary);
+}
+
+/* Secondary button - for settings or less important actions */
+.buttonSecondary {
+  composes: button;
   background-color: var(--color-bg-light);
   color: var(--color-text);
   border: 1px solid var(--color-border);
-  border-radius: var(--border-radius-md);
-  padding: var(--space-sm) var(--space-lg);
-  font-weight: var(--font-weight-medium);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  display: flex;
-  align-items: center;
-  font-size: var(--font-size-sm);
-  height: 38px;
 }
 
-.settingsButton:hover {
+.buttonSecondary:hover {
   background-color: var(--color-bg-hover);
   border-color: var(--color-text-secondary);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-sm);
 }
 
-.settingsButton:active {
-  transform: translateY(1px);
-  box-shadow: none;
+/* Danger button - for destructive actions or retry */
+.buttonDanger {
+  composes: button;
+  background-color: var(--color-error);
+  color: white;
 }
 
-/* Section refresh button */
-.sectionRefreshButton {
+.buttonDanger:hover {
+  background-color: var(--color-error-dark);
+}
+
+/* Icon button - for small action buttons */
+.buttonIcon {
+  composes: button;
+  width: 36px;
+  height: 36px;
+  padding: 0;
   background: none;
-  border: none;
   color: var(--color-text-secondary);
-  cursor: pointer;
-  padding: var(--space-xs);
   border-radius: var(--border-radius-full);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all var(--transition-fast);
-  width: 28px;
-  height: 28px;
 }
 
-.sectionRefreshButton:hover {
+.buttonIcon:hover {
   background-color: var(--color-bg-hover);
   color: var(--color-primary);
 }
 
-.sectionRefreshButton:active {
-  transform: translateY(1px);
+/* Compact icon button - even smaller */
+.buttonIconCompact {
+  composes: buttonIcon;
+  width: 28px;
+  height: 28px;
 }
 
-.sectionRefreshButton:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-
-.sectionRefreshButton svg {
+.buttonIconCompact svg {
   width: 16px;
   height: 16px;
+}
+
+/* Button icon helper class */
+.buttonIconLeft {
+  margin-right: var(--space-xs);
+}
+
+/* Retry button - specific for error banner */
+.retryButton {
+  composes: buttonDanger;
+  white-space: nowrap;
+  padding: 0 var(--space-md);
+  flex-shrink: 0;
+}
+
+/* Media query for error banner on mobile */
+@media (max-width: 640px) {
+  .errorBanner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .retryButton {
+    margin-top: var(--space-md);
+    align-self: flex-start;
+  }
 }
 
 /* Refreshing animation for content */
@@ -565,34 +634,4 @@
   100% {
     transform: rotate(360deg);
   }
-}
-
-/* Collapse/expand button */
-.collapseButton {
-  background: none;
-  border: none;
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  padding: var(--space-xs);
-  border-radius: var(--border-radius-full);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all var(--transition-fast);
-  width: 28px;
-  height: 28px;
-}
-
-.collapseButton:hover {
-  background-color: var(--color-bg-hover);
-  color: var(--color-primary);
-}
-
-.collapseButton:active {
-  transform: translateY(1px);
-}
-
-.collapseButton svg {
-  width: 18px;
-  height: 18px;
 }

@@ -1,0 +1,72 @@
+/* Docker section styles */
+.dockerSection {
+  margin-top: var(--space-xl);
+}
+
+/* Docker rows instead of grid */
+.dockerRow {
+  margin-bottom: var(--space-md);
+}
+
+.dockerRow:last-child {
+  margin-bottom: 0;
+}
+
+/* Terminal output styling */
+.terminal {
+  background-color: var(--color-bg-dark);
+  border-radius: var(--border-radius-md);
+  font-family: var(--font-family-mono);
+  overflow: hidden;
+  margin: var(--space-md) 0;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.terminalHeader {
+  background-color: var(--color-bg-darker);
+  padding: var(--space-sm) var(--space-md);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  color: var(--color-text-secondary);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+}
+
+.terminalContent {
+  padding: var(--space-md);
+  color: var(--color-text-light);
+  max-height: 300px;
+  overflow-y: auto;
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Command examples */
+.commandExamples {
+  background-color: var(--color-bg-dark);
+  padding: var(--space-md);
+  border-radius: var(--border-radius-md);
+  font-family: var(--font-family-mono);
+  color: var(--color-text-light);
+  line-height: 1.6;
+  margin: var(--space-md) 0;
+}
+
+/* Installation instructions section */
+.instructions {
+  margin-bottom: var(--space-lg);
+}
+
+.instructions h3 {
+  color: var(--color-primary);
+  margin-top: 0;
+  margin-bottom: var(--space-md);
+}
+
+.instructions ul {
+  margin-bottom: var(--space-md);
+  padding-left: var(--space-xl);
+}

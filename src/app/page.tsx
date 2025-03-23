@@ -3,8 +3,7 @@
 import React, { useContext, useEffect, useState } from 'react';
 import AuthContext from '@/contexts/auth/AuthContext';
 import { LoadingState } from '@/components/LoadingState';
-import { ErrorDisplay } from '@/components/ErrorDisplay';
-import { FiRefreshCw, FiServer, FiSettings } from 'react-icons/fi';
+import { FiRefreshCw, FiServer, FiSettings, FiAlertTriangle } from 'react-icons/fi';
 import styles from './page.module.css';
 
 // Import our modular components
@@ -16,6 +15,7 @@ import { NetworkSection } from '@/components/dashboard/NetworkSection';
 import { GraphicsSection } from '@/components/dashboard/GraphicsSection';
 import { ProcessesSection } from '@/components/dashboard/ProcessesSection';
 import { DashboardSettings } from '@/components/dashboard/DashboardSettings';
+import { DockerSection } from '@/components/dashboard/DockerSection';
 
 // Import custom hooks
 import { useSystemInfo } from '@/hooks/useSystemInfo';
@@ -96,17 +96,16 @@ export default function Dashboard() {
     };
   }, [autoRefreshEnabled, autoRefreshInterval, fetchSystemInfo]);
 
-  // Show error display if we have an error
-  if (error) {
+  // If we're loading for the first time with no data, show a full loading state
+  if (loading && !displayData) {
     return (
       <PageWrapper title="Dashboard" showInNav={true} order={1}>
-        <ErrorDisplay
-          error={error}
-          onRetry={() => retry()}
-        />
+        <LoadingState message="Loading system information..." />
       </PageWrapper>
     );
   }
+
+  const isAnyRefreshInProgress = loading || isRefreshing || Object.values(componentRefreshing).some(v => v);
 
   return (
     <PageWrapper title="Dashboard" showInNav={true} order={1}>
@@ -128,23 +127,43 @@ export default function Dashboard() {
           <div className={styles.controls}>
             <button
               onClick={() => setShowSettings(!showSettings)}
-              className={styles.settingsButton}
+              className={styles.buttonSecondary}
               title="Dashboard settings"
             >
-              <FiSettings className={styles.buttonIcon} />
+              <FiSettings className={styles.buttonIconLeft} />
               Settings
             </button>
 
             <button
               onClick={() => fetchSystemInfo(false)}
-              className={styles.button}
-              disabled={loading || isRefreshing || Object.values(componentRefreshing).some(v => v)}
+              className={styles.buttonPrimary}
+              disabled={isAnyRefreshInProgress}
             >
-              <FiRefreshCw className={`${styles.buttonIcon} ${isRefreshing ? styles.spinning : ''}`} />
-              {isRefreshing ? 'Refreshing...' : 'Refresh All'}
+              <FiRefreshCw className={`${styles.buttonIconLeft} ${isAnyRefreshInProgress ? styles.spinning : ''}`} />
+              {isAnyRefreshInProgress ? 'Refreshing...' : 'Refresh All'}
             </button>
           </div>
         </div>
+
+        {/* Error message at page top */}
+        {error && (
+          <div className={styles.errorBanner}>
+            <div className={styles.errorContent}>
+              <FiAlertTriangle className={styles.errorIcon} />
+              <div className={styles.errorMessage}>
+                <p className={styles.errorText}>{error}</p>
+                <p className={styles.errorHint}>There was a problem updating the dashboard data. Previous data is still shown below.</p>
+              </div>
+            </div>
+            <button
+              onClick={() => retry()}
+              className={styles.retryButton}
+              aria-label="Retry"
+            >
+              Try Again
+            </button>
+          </div>
+        )}
 
         {/* Settings panel (conditionally rendered) */}
         {showSettings && (
@@ -163,89 +182,92 @@ export default function Dashboard() {
         )}
 
         {/* Main dashboard content */}
-        {loading && !displayData ? (
-          <LoadingState message="Loading system information..." />
-        ) : (
-          <div className={`${styles.contentWrapper} ${isRefreshing ? styles.refreshing : ''}`}>
-            {/* Main grid for system info cards */}
-            <div className={styles.grid}>
-              {/* Memory Information (only if visible in preferences) */}
-              {visibleSections.memory && (
-                <MemorySection
-                  memory={displayData?.memory}
-                  isRefreshing={componentRefreshing.memory}
-                  onRefresh={() => handleComponentRefresh('memory', 'memory')}
-                  displayMode={displayMode}
-                />
-              )}
-
-              {/* OS Information */}
-              {visibleSections.os && (
-                <OsSection
-                  os={displayData?.os}
-                  uptime={displayData?.uptime ?? undefined}
-                  displayMode={displayMode}
-                />
-              )}
-
-              {/* PM2 Processes */}
-              {visibleSections.processes && hasPm2Processes && (
-                <ProcessesSection
-                  processes={componentRefreshing.processes ? cachedData.pm2Processes : displayData?.pm2Processes}
-                  isRefreshing={componentRefreshing.processes}
-                  isCollapsed={collapsedSections.processes}
-                  onRefresh={() => handleComponentRefresh('processes', 'processes')}
-                  onToggleCollapse={() => toggleSectionCollapse('processes')}
-                  displayMode={displayMode}
-                />
-              )}
-            </div>
-
-            {/* CPU Information */}
-            {visibleSections.cpu && (
-              <CpuSection
-                cpu={displayData?.cpu}
-                isCollapsed={collapsedSections.cpu}
-                onToggleCollapse={() => toggleSectionCollapse('cpu')}
+        <div className={`${styles.contentWrapper} ${isRefreshing ? styles.refreshing : ''}`}>
+          {/* Main grid for system info cards */}
+          <div className={styles.grid}>
+            {/* Memory Information (only if visible in preferences) */}
+            {visibleSections.memory && (
+              <MemorySection
+                memory={displayData?.memory}
+                isRefreshing={componentRefreshing.memory}
+                onRefresh={() => handleComponentRefresh('memory', 'memory')}
                 displayMode={displayMode}
               />
             )}
 
-            {/* GPU Information */}
-            {visibleSections.gpu && (
-              <GraphicsSection
-                graphics={displayData?.graphics}
-                isCollapsed={collapsedSections.gpu}
-                onToggleCollapse={() => toggleSectionCollapse('gpu')}
+            {/* OS Information */}
+            {visibleSections.os && (
+              <OsSection
+                os={displayData?.os}
+                uptime={displayData?.uptime ?? undefined}
                 displayMode={displayMode}
               />
             )}
 
-            {/* Storage Information */}
-            {visibleSections.storage && (
-              <StorageSection
-                disks={componentRefreshing.storage ? cachedData.disks : displayData?.disks}
-                isRefreshing={componentRefreshing.storage}
-                isCollapsed={collapsedSections.storage}
-                onRefresh={() => handleComponentRefresh('storage', 'storage')}
-                onToggleCollapse={() => toggleSectionCollapse('storage')}
-                displayMode={displayMode}
-              />
-            )}
-
-            {/* Network Information */}
-            {visibleSections.network && (
-              <NetworkSection
-                network={componentRefreshing.network ? cachedData.network : displayData?.network}
-                isRefreshing={componentRefreshing.network}
-                isCollapsed={collapsedSections.network}
-                onRefresh={() => handleComponentRefresh('network', 'network')}
-                onToggleCollapse={() => toggleSectionCollapse('network')}
+            {/* PM2 Processes */}
+            {visibleSections.processes && hasPm2Processes && (
+              <ProcessesSection
+                processes={componentRefreshing.processes ? cachedData.pm2Processes : displayData?.pm2Processes}
+                isRefreshing={componentRefreshing.processes}
+                isCollapsed={collapsedSections.processes}
+                onRefresh={() => handleComponentRefresh('processes', 'processes')}
+                onToggleCollapse={() => toggleSectionCollapse('processes')}
                 displayMode={displayMode}
               />
             )}
           </div>
-        )}
+
+          {/* CPU Information */}
+          {visibleSections.cpu && (
+            <CpuSection
+              cpu={displayData?.cpu}
+              isCollapsed={collapsedSections.cpu}
+              onToggleCollapse={() => toggleSectionCollapse('cpu')}
+              displayMode={displayMode}
+            />
+          )}
+
+          {/* GPU Information */}
+          {visibleSections.gpu && (
+            <GraphicsSection
+              graphics={displayData?.graphics}
+              isCollapsed={collapsedSections.gpu}
+              onToggleCollapse={() => toggleSectionCollapse('gpu')}
+              displayMode={displayMode}
+            />
+          )}
+
+          {/* Storage Information */}
+          {visibleSections.storage && (
+            <StorageSection
+              disks={componentRefreshing.storage ? cachedData.disks : displayData?.disks}
+              isRefreshing={componentRefreshing.storage}
+              isCollapsed={collapsedSections.storage}
+              onRefresh={() => handleComponentRefresh('storage', 'storage')}
+              onToggleCollapse={() => toggleSectionCollapse('storage')}
+              displayMode={displayMode}
+            />
+          )}
+
+          {/* Network Information */}
+          {visibleSections.network && (
+            <NetworkSection
+              network={componentRefreshing.network ? cachedData.network : displayData?.network}
+              isRefreshing={componentRefreshing.network}
+              isCollapsed={collapsedSections.network}
+              onRefresh={() => handleComponentRefresh('network', 'network')}
+              onToggleCollapse={() => toggleSectionCollapse('network')}
+              displayMode={displayMode}
+            />
+          )}
+
+          {/* Docker Information - As a dedicated component */}
+          <DockerSection
+            osInfo={displayData?.os}
+            token={token ?? undefined}
+            displayMode={displayMode}
+          />
+        </div>
       </div>
     </PageWrapper>
   );

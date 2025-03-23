@@ -136,19 +136,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 setUser(JSON.parse(userData));
               }
 
-              // Mark as allowed to let UI render
+              // Mark as allowed to let UI render - user has a valid token
               setIsAllowed(true);
 
-              // Start allowlist check in background with timeout
-              setIsCheckingAllowlist(true);
-
-              // Run check in background with timeout
-              const timeoutPromise = new Promise<void>((resolve) => {
-                setTimeout(resolve, 4000); // 4 second timeout
-              });
-
-              Promise.race([
-                isAddressAllowedAsync(storedAddress).then(allowed => {
+              // Update the check to pass the token information
+              if (storedAddress) {
+                // Note we pass true to indicate this user has a valid token
+                isAddressAllowedAsync(storedAddress, true).then(allowed => {
                   // Only update if check fails - don't interrupt user if already authenticated
                   if (!allowed) {
                     console.warn('Authenticated user failed allowlist check - preparing logout');
@@ -157,11 +151,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                       logout();
                     }, 500);
                   }
-                }),
-                timeoutPromise
-              ]).finally(() => {
-                setIsCheckingAllowlist(false);
-              });
+                }).catch(err => {
+                  console.error('Error in background allowlist check:', err);
+                });
+              }
 
               // Continue to UI without waiting
               setIsLoading(false);
@@ -323,8 +316,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       // Set loading state for allowlist check
       setIsCheckingAllowlist(true);
+
       // Add critical whitelist check using the async API
-      const addressIsAllowed = await isAddressAllowedAsync(address);
+      const addressIsAllowed = await isAddressAllowedAsync(address, false);
       if (!addressIsAllowed) {
         setError('This wallet address is not authorized');
         return false;
@@ -431,7 +425,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     try {
       // Verify wallet is still allowed before refreshing token
-      const addressIsAllowed = await isAddressAllowedAsync(walletAddress);
+      const addressIsAllowed = await isAddressAllowedAsync(walletAddress, true);
+
       if (!addressIsAllowed) {
         logout(); // Force logout if address no longer allowed
         return false;

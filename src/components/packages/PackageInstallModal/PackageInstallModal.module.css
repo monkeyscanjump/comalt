@@ -1,0 +1,363 @@
+.modalBackdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal {
+  background-color: var(--color-surface-light);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  width: 560px;
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.modalHeader {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modalTitle {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.closeButton {
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+  font-size: 1.2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border-radius: 50%;
+  transition: background-color 0.2s;
+}
+
+.closeButton:hover {
+  background-color: var(--color-bg-hover);
+}
+
+.closeButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.modalContent {
+  padding: 24px;
+  overflow-y: auto;
+}
+
+.packageInfo {
+  margin-bottom: 24px;
+}
+
+.packageMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.packageMeta h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.packageTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.packageDescription {
+  margin: 10px 0 16px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  font-size: 0.95rem;
+}
+
+.githubLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-primary);
+  text-decoration: none;
+  font-size: 0.9rem;
+  padding: 6px 0;
+}
+
+.githubLink:hover {
+  text-decoration: underline;
+}
+
+.installForm {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.formSection {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 16px;
+  background-color: var(--color-surface);
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.sectionHeader h4 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--color-text);
+  flex: 1;
+}
+
+.sectionIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background-color: rgba(var(--color-primary-rgb), 0.1);
+  border-radius: 6px;
+  color: var(--color-primary);
+}
+
+.editButton {
+  background: none;
+  border: none;
+  color: var(--color-primary);
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.editButton:hover {
+  background-color: var(--color-bg-hover);
+}
+
+.editButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.inputWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pathInput {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  background-color: var(--color-input-bg);
+  color: var(--color-text);
+  transition: border-color 0.2s;
+}
+
+.pathInput:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb), 0.15);
+}
+
+.pathInput:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.defaultPath {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background-color: var(--color-input-bg);
+  color: var(--color-text);
+  font-size: 0.9rem;
+}
+
+.folderIcon {
+  color: var(--color-text-secondary);
+}
+
+.commandsList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 160px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.commandItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.terminalIcon {
+  margin-top: 4px;
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+
+.commandText {
+  font-family: var(--font-family-mono);
+  font-size: 0.85rem;
+  padding: 6px 10px;
+  background-color: var(--color-surface-dark);
+  border-radius: 4px;
+  color: var(--color-text);
+  overflow-x: auto;
+  white-space: nowrap;
+  max-width: 100%;
+  flex: 1;
+}
+
+.requirementsList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.requirementItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background-color: rgba(var(--color-warning-rgb), 0.1);
+  border-radius: 6px;
+}
+
+.requirementIcon {
+  color: var(--color-warning);
+}
+
+.requirementName {
+  font-weight: 500;
+  color: var(--color-text);
+  flex: 1;
+}
+
+.requirementVersion {
+  font-family: var(--font-family-mono);
+  font-size: 0.85rem;
+  padding: 2px 6px;
+  background-color: rgba(var(--color-border-rgb), 0.3);
+  border-radius: 4px;
+  color: var(--color-text-secondary);
+}
+
+.actionButtons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.cancelButton,
+.installButton {
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background-color 0.2s, transform 0.1s;
+}
+
+.cancelButton {
+  background-color: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+.cancelButton:hover:not(:disabled) {
+  background-color: var(--color-bg-hover);
+}
+
+.installButton {
+  background-color: var(--color-primary);
+  border: none;
+  color: white;
+}
+
+.installButton:hover:not(:disabled) {
+  background-color: var(--color-primary-dark);
+}
+
+.installButton:disabled,
+.cancelButton:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
