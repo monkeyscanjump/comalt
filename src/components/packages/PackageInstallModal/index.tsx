@@ -3,6 +3,7 @@ import { FiFolder, FiX, FiGithub, FiDownload, FiTrash2, FiAlertTriangle } from '
 import styles from '@/app/page.module.css';
 import modalStyles from './PackageInstallModal.module.css';
 import { Package } from '@/types/packages';
+import { useClickOutside } from '@/hooks/useClickOutside';
 
 type ModalMode = 'install' | 'uninstall';
 
@@ -24,6 +25,9 @@ export const PackageInstallModal: React.FC<PackageInstallModalProps> = ({
   const [installPath, setInstallPath] = useState(pkg.defaultInstallPath || '');
   const [error, setError] = useState<string | null>(null);
   const [confirmUninstall, setConfirmUninstall] = useState(false);
+
+  // Add click outside behavior
+  const modalRef = useClickOutside<HTMLDivElement>(onCancel);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,7 +67,8 @@ export const PackageInstallModal: React.FC<PackageInstallModalProps> = ({
 
   return (
     <div className={modalStyles.modalBackdrop}>
-      <div className={modalStyles.modal}>
+      {/* Apply the ref to the modal container, not the backdrop */}
+      <div className={modalStyles.modal} ref={modalRef}>
         <div className={modalStyles.modalHeader}>
           <h3 className={modalStyles.modalTitle}>{modalTitle}</h3>
           <button

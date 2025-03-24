@@ -321,7 +321,7 @@ export function useSystemInfo({
     }
   }, [state.displayData]);
 
-  // Auto-retry on error - Using fixed dependency
+  // Auto-retry on error - FIXED: Added logDebug dependency
   useEffect(() => {
     if (state.error && state.retryAttempts <= DEFAULT_RETRY_ATTEMPTS) {
       logDebug(`Auto-retrying after error (attempt ${state.retryAttempts})`);
@@ -331,9 +331,9 @@ export function useSystemInfo({
 
       return () => clearTimeout(timer);
     }
-  }, [state.error, state.retryAttempts, fetchSystemInfo]);
+  }, [state.error, state.retryAttempts, fetchSystemInfo, logDebug]); // Added logDebug
 
-  // Auto-refresh effect
+  // Auto-refresh effect - FIXED: Added logDebug dependency
   useEffect(() => {
     if (autoRefreshEnabled && refreshInterval > 0 && !state.loading) {
       logDebug(`Setting up auto-refresh interval: ${refreshInterval}s`);
@@ -343,7 +343,7 @@ export function useSystemInfo({
 
       return () => clearInterval(refreshTimer);
     }
-  }, [autoRefreshEnabled, refreshInterval, state.loading, fetchSystemInfo]);
+  }, [autoRefreshEnabled, refreshInterval, state.loading, fetchSystemInfo, logDebug]); // Added logDebug
 
   // Fetch specific component data
   const fetchComponentData = useCallback(async (component: SystemInfoComponentKey) => {
@@ -502,7 +502,7 @@ export function useSystemInfo({
       logDebug('Auto-fetching on mount');
       fetchSystemInfo(true);
     }
-  }, [autoFetch, fetchSystemInfo, logDebug]); // Simplified dependencies
+  }, [autoFetch, fetchSystemInfo, logDebug]);
 
   return {
     ...state,
