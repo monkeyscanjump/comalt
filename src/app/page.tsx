@@ -29,12 +29,17 @@ import { PageWrapper } from '@/components/layout/PageWrapper';
 export default function Dashboard() {
   const auth = useContext(AuthContext);
   const [showSettings, setShowSettings] = useState(false);
+  const [loadingTimeout, setLoadingTimeout] = useState(false);
+
+  // Debug logging to help diagnose state issues
+  console.log('[Dashboard] Render with auth:', !!auth);
 
   if (!auth) {
     throw new Error('Dashboard must be used within AuthProvider');
   }
 
   const { token, isPublicMode } = auth;
+  console.log('[Dashboard] Auth state:', { hasToken: !!token, isPublicMode });
 
   // Load user preferences
   const {
@@ -64,6 +69,34 @@ export default function Dashboard() {
     autoFetch: true,
     autoRefreshEnabled,
     refreshInterval: autoRefreshInterval
+  });
+
+  // Add timeout protection for loading state
+  useEffect(() => {
+    let loadingTimer: NodeJS.Timeout | null = null;
+
+    if (loading && !displayData && !loadingTimeout) {
+      console.log('[Dashboard] Setting up loading timeout protection (15s)');
+      loadingTimer = setTimeout(() => {
+        console.log('[Dashboard] Loading timeout triggered - still waiting for data');
+        setLoadingTimeout(true);
+      }, 15000); // 15 seconds timeout
+    }
+
+    return () => {
+      if (loadingTimer) {
+        clearTimeout(loadingTimer);
+      }
+    };
+  }, [loading, displayData, loadingTimeout]);
+
+  // Debug state logging
+  console.log('[Dashboard] Render state:', {
+    loading,
+    hasData: !!displayData,
+    loadingTimeout,
+    error,
+    lastRefreshTime: lastRefreshTime ? new Date(lastRefreshTime).toLocaleTimeString() : null
   });
 
   // Manage collapsible sections
@@ -96,11 +129,47 @@ export default function Dashboard() {
     };
   }, [autoRefreshEnabled, autoRefreshInterval, fetchSystemInfo]);
 
+  // Handle manual retry and reset timeout
+  const handleRetry = () => {
+    setLoadingTimeout(false);
+    retry();
+  };
+
   // If we're loading for the first time with no data, show a full loading state
   if (loading && !displayData) {
     return (
       <PageWrapper title="Dashboard" showInNav={true} order={1}>
-        <LoadingState message="Loading system information..." />
+        <div className={styles.container}>
+          <div className={styles.header}>
+            <h1 className={styles.title}>
+              <FiServer className={styles.titleIcon} />
+              System Dashboard
+            </h1>
+          </div>
+
+          <LoadingState message="Loading system information..." />
+
+          {/* Show error or timeout message */}
+          {(error || loadingTimeout) && (
+            <div className={styles.errorBanner}>
+              <div className={styles.errorContent}>
+                <FiAlertTriangle className={styles.errorIcon} />
+                <div className={styles.errorMessage}>
+                  <p className={styles.errorText}>
+                    {error || "Loading is taking longer than expected. The server might be busy or starting up."}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={handleRetry}
+                className={styles.retryButton}
+                aria-label="Retry"
+              >
+                Try Again
+              </button>
+            </div>
+          )}
+        </div>
       </PageWrapper>
     );
   }

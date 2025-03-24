@@ -8,23 +8,23 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  address       String    @unique
-  name          String?
-  isAdmin       Boolean   @default(false)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  lastLoginAt   DateTime?
-  sessions      Session[]
+  id          String    @id @default(cuid())
+  address     String    @unique
+  name        String?
+  isAdmin     Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  lastLoginAt DateTime?
+  sessions    Session[]
 }
 
 model Session {
   id        String   @id @default(cuid())
   token     String   @unique
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model AppPackage {
@@ -32,7 +32,7 @@ model AppPackage {
   name             String
   description      String?
   githubUrl        String
-  installCommands  String    // Store as JSON string
+  installCommands  String
   isInstalled      Boolean   @default(false)
   installedVersion String?
   installPath      String?

@@ -14,13 +14,20 @@
   box-shadow: var(--shadow-md);
 }
 
+.installed {
+  border: 1px solid var(--color-primary);
+}
+
 .cardHeader {
   padding: 20px 20px 10px;
   border-bottom: 1px solid var(--color-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .cardHeader h3 {
-  margin: 0 0 10px;
+  margin: 0;
   font-size: 1.4rem;
   font-weight: 600;
   color: var(--color-text);
@@ -30,20 +37,34 @@
   display: flex;
   flex-wrap: wrap;
   gap: 5px;
-  margin-top: 8px;
+  margin: 8px 20px;
 }
 
 .categoryBadge,
-.tagBadge,
-.installedBadge {
-  display: flex;
+.tagBadge {
+  display: inline-flex;
   align-items: center;
   gap: 4px;
   font-size: 0.8rem;
+  background-color: var(--color-bg-hover);
+  padding: 3px 8px;
+  border-radius: 4px;
+  color: var(--color-text-secondary);
+}
+
+.installedBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.8rem;
+  background-color: var(--color-primary);
+  color: white;
+  padding: 3px 8px;
+  border-radius: 4px;
 }
 
 .badgeIcon {
-  margin-right: 4px;
+  margin-right: 2px;
 }
 
 .description {
@@ -74,42 +95,8 @@
   color: var(--color-text);
 }
 
-.pathButton {
-  background: none;
-  border: none;
-  padding: 0;
-  color: var(--color-primary);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 0.9rem;
-}
-
-.pathButton:hover {
-  text-decoration: underline;
-}
-
-.githubInfo {
-  padding: 10px 20px;
-  border-top: 1px solid var(--color-border);
-}
-
-.githubLink {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--color-primary);
-  text-decoration: none;
-  font-size: 0.9rem;
-}
-
-.githubLink:hover {
-  text-decoration: underline;
-}
-
 .errorContainer {
-  margin-top: 10px;
+  margin: 10px 20px;
   padding: 10px;
   background-color: rgba(var(--color-error-rgb), 0.1);
   border-radius: 6px;
@@ -129,46 +116,22 @@
   word-break: break-word;
 }
 
-.commandsContainer {
+.githubInfo {
   padding: 10px 20px;
-  background-color: var(--color-surface-dark);
-  border-radius: 6px;
-  margin: 0 20px 15px;
+  border-top: 1px solid var(--color-border);
 }
 
-.commandsTitle {
+.githubLink {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin: 0 0 8px;
+  gap: 8px;
+  color: var(--color-primary);
+  text-decoration: none;
   font-size: 0.9rem;
-  color: var(--color-text-secondary);
-  font-weight: 500;
 }
 
-.commandsIcon {
-  color: var(--color-text-secondary);
-}
-
-.commandsList {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  max-height: 150px;
-  overflow-y: auto;
-  scrollbar-width: thin;
-}
-
-.commandCode {
-  font-family: var(--font-family-mono);
-  font-size: 0.8rem;
-  background-color: var(--color-bg-hover);
-  padding: 4px 8px;
-  border-radius: 4px;
-  color: var(--color-text-secondary);
-  overflow-x: auto;
-  white-space: nowrap;
-  max-width: 100%;
+.githubLink:hover {
+  text-decoration: underline;
 }
 
 .actions {

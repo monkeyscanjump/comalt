@@ -28,7 +28,7 @@ import {
 const execAsync = promisify(exec);
 
 // Max age for cache control (in seconds)
-const CACHE_MAX_AGE = 5; // 5 seconds - short cache for dynamic data
+const CACHE_MAX_AGE = 0; // Disable caching completely - was 5 seconds
 
 // Valid component keys
 const VALID_COMPONENTS: SystemInfoComponentKey[] = ['memory', 'storage', 'network', 'processes'];
@@ -37,9 +37,13 @@ const VALID_COMPONENTS: SystemInfoComponentKey[] = ['memory', 'storage', 'networ
  * GET handler for system information API
  */
 export async function GET(request: NextRequest) {
+  console.log('[System API] Request received:', request.url);
+  const startTime = Date.now();
+
   try {
     // Check if app is in public mode using existing server-side implementation
     const publicMode = isPublicMode();
+    console.log('[System API] Public mode:', publicMode);
 
     // Skip authentication checks if in public mode
     if (!publicMode) {
@@ -47,7 +51,7 @@ export async function GET(request: NextRequest) {
       const token = getAuthToken(request);
 
       if (!token) {
-        console.log('No token provided');
+        console.log('[System API] No token provided');
         return errorResponse('Authentication required', 'AUTH_REQUIRED', 401);
       }
 
@@ -55,7 +59,7 @@ export async function GET(request: NextRequest) {
       const tokenResult = await validateAuthToken(token);
 
       if (!tokenResult.valid) {
-        console.log('Invalid token');
+        console.log('[System API] Invalid token:', tokenResult.error);
         return errorResponse(
           tokenResult.error || 'Invalid token',
           tokenResult.errorCode || 'INVALID_TOKEN',
@@ -65,17 +69,22 @@ export async function GET(request: NextRequest) {
 
       // Admin check
       if (tokenResult.isAdmin !== true) {
-        console.log('User not admin');
+        console.log('[System API] User not admin');
         return errorResponse('Admin privileges required', 'ADMIN_REQUIRED', 403);
       }
+
+      console.log('[System API] Authentication successful');
     }
 
     // Get the component parameter (if any)
     const url = new URL(request.url);
     const componentParam = url.searchParams.get('component');
 
+    console.log('[System API] Component parameter:', componentParam || 'none');
+
     // Validate component parameter if provided
     if (componentParam && !VALID_COMPONENTS.includes(componentParam as SystemInfoComponentKey)) {
+      console.log('[System API] Invalid component:', componentParam);
       return errorResponse(
         `Invalid component specified. Valid components are: ${VALID_COMPONENTS.join(', ')}`,
         'INVALID_COMPONENT',
@@ -90,33 +99,38 @@ export async function GET(request: NextRequest) {
 
     // Check if we're requesting a specific component
     if (component) {
+      console.log(`[System API] Fetching specific component: ${component}`);
       try {
         switch (component) {
           case 'memory': {
+            console.log('[System API] Retrieving memory info');
             const memoryInfo = await mem();
             responseData.memory = formatMemory(memoryInfo);
             break;
           }
 
           case 'storage': {
+            console.log('[System API] Retrieving disk info');
             const diskLayoutInfo = await diskLayout();
             responseData.disks = formatDisks(diskLayoutInfo);
             break;
           }
 
           case 'network': {
+            console.log('[System API] Retrieving network info');
             const networkInterfacesInfo = await networkInterfaces();
             responseData.network = formatNetwork(networkInterfacesInfo);
             break;
           }
 
           case 'processes': {
+            console.log('[System API] Retrieving PM2 processes');
             responseData.pm2Processes = await getPm2Processes();
             break;
           }
         }
       } catch (componentError) {
-        console.error(`Error fetching ${component} info:`, componentError);
+        console.error(`[System API] Error fetching ${component} info:`, componentError);
         return errorResponse(
           `Failed to retrieve ${component} information`,
           `${component.toUpperCase()}_INFO_ERROR`,
@@ -125,11 +139,13 @@ export async function GET(request: NextRequest) {
         );
       }
 
+      console.log(`[System API] Component ${component} retrieved successfully`);
       // Set cache control headers for component data
       return createResponse(responseData);
     }
 
     // If no specific component requested, fetch all data
+    console.log('[System API] Fetching complete system information');
     try {
       const [
         cpuInfo,
@@ -146,6 +162,8 @@ export async function GET(request: NextRequest) {
         networkInterfaces(),
         osInfo()
       ]);
+
+      console.log('[System API] All system data collected');
 
       // Format CPU cache values from numbers to strings with units
       const formattedCache: SystemCpu['cache'] = {
@@ -184,9 +202,13 @@ export async function GET(request: NextRequest) {
         pm2Processes: await getPm2Processes()
       };
 
+      console.log('[System API] System info prepared successfully');
+      const elapsedTime = Date.now() - startTime;
+      console.log(`[System API] Request completed in ${elapsedTime}ms`);
+
       return createResponse(systemInfo);
     } catch (error) {
-      console.error('Error fetching complete system information:', error);
+      console.error('[System API] Error fetching complete system information:', error);
       return errorResponse(
         'Failed to retrieve system information',
         'SYSTEM_INFO_ERROR',
@@ -195,7 +217,7 @@ export async function GET(request: NextRequest) {
       );
     }
   } catch (unexpectedError) {
-    console.error('Unexpected error in system API route:', unexpectedError);
+    console.error('[System API] Unexpected error in system API route:', unexpectedError);
     return errorResponse(
       'An unexpected error occurred',
       'UNEXPECTED_ERROR',
@@ -209,9 +231,17 @@ export async function GET(request: NextRequest) {
  * Helper function to create response with appropriate headers
  */
 function createResponse(data: any) {
-  const response = NextResponse.json(data);
-  response.headers.set('Cache-Control', `max-age=${CACHE_MAX_AGE}, private`);
+  const response = NextResponse.json({
+    ...data,
+    _timestamp: Date.now() // Add timestamp to prevent caching
+  });
+
+  // Completely disable caching
+  response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+  response.headers.set('Pragma', 'no-cache');
+  response.headers.set('Expires', '0');
   response.headers.set('Vary', 'Authorization');
+
   return response;
 }
 
@@ -300,7 +330,7 @@ async function getPm2Processes() {
       createdAt: process.pm2_env?.created_at ? new Date(process.pm2_env.created_at).toISOString() : undefined
     }));
   } catch (error) {
-    console.log('PM2 not available or not running');
+    console.log('[System API] PM2 not available or not running');
     return [];
   }
 }

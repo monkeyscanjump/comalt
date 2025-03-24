@@ -1,17 +1,17 @@
 import React from 'react';
-import {
-  FiGithub,
-  FiDownload,
-  FiTrash2,
-  FiCheck,
-  FiAlertTriangle,
-  FiExternalLink,
-  FiInfo
-} from 'react-icons/fi';
+import { FiDownload, FiTrash2, FiGithub, FiTag, FiInfo } from 'react-icons/fi';
 import styles from './PackageCard.module.css';
-import { Package, getCommandsAsArray } from '@/types/packages';
-import { formatDistanceToNow } from 'date-fns';
-import { Badge } from '@/components/layout/Badge';
+import { Package } from '@/types/packages';
+
+// Local date formatting function
+const formatDate = (date: Date): string => {
+  // Format: "Jan 1, 2023"
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  });
+};
 
 interface PackageCardProps {
   package: Package;
@@ -28,93 +28,71 @@ export const PackageCard: React.FC<PackageCardProps> = ({
   isInstalling,
   isUninstalling
 }) => {
+  // Check if there's an installation or uninstallation in progress
   const isInProgress = isInstalling || isUninstalling;
-  const commands = getCommandsAsArray(pkg.installCommands);
-
-  // Format relative time for installed date
-  const getFormattedDate = (dateString: string | null) => {
-    if (!dateString) return 'Never';
-    try {
-      const date = new Date(dateString);
-      return formatDistanceToNow(date, { addSuffix: true });
-    } catch (e) {
-      return 'Unknown';
-    }
-  };
-
-  // Safely handle opening file paths on different platforms
-  const handleOpenPath = () => {
-    if (!pkg.installPath) return;
-
-    try {
-      // Normalize path for display
-      const displayPath = pkg.installPath.replace(/\\/g, '/');
-      // Use file:// protocol which works in browser
-      window.open(`file://${displayPath}`, '_blank');
-    } catch (e) {
-      console.error('Failed to open path:', e);
-    }
-  };
 
   return (
-    <div className={styles.packageCard}>
+    <div className={`${styles.packageCard} ${pkg.isInstalled ? styles.installed : ''}`}>
       <div className={styles.cardHeader}>
         <h3>{pkg.name}</h3>
-        <div className={styles.badges}>
-          {pkg.category && (
-            <Badge variant="outline" className={styles.categoryBadge}>
-              {pkg.category}
-            </Badge>
-          )}
-          {pkg.tags?.map(tag => (
-            <Badge key={tag} variant="secondary" className={styles.tagBadge}>
-              {tag}
-            </Badge>
-          ))}
-          {pkg.isInstalled && (
-            <Badge variant="success" className={styles.installedBadge}>
-              <FiCheck className={styles.badgeIcon} />
-              Installed
-            </Badge>
-          )}
-        </div>
-      </div>
-
-      <p className={styles.description}>{pkg.description || 'No description available'}</p>
-
-      <div className={styles.details}>
         {pkg.isInstalled && (
-          <>
-            <div className={styles.detailItem}>
-              <span className={styles.detailLabel}>Version:</span>
-              <span className={styles.detailValue}>{pkg.installedVersion || 'Unknown'}</span>
-            </div>
-            <div className={styles.detailItem}>
-              <span className={styles.detailLabel}>Installed:</span>
-              <span className={styles.detailValue}>
-                {getFormattedDate(pkg.installedAt ?? null)}
-              </span>
-            </div>
-            <div className={styles.detailItem}>
-              <span className={styles.detailLabel}>Path:</span>
-              <span className={styles.detailValue}>
-                <button
-                  className={styles.pathButton}
-                  onClick={handleOpenPath}
-                >
-                  {pkg.installPath} <FiExternalLink size={14} />
-                </button>
-              </span>
-            </div>
-            {pkg.lastError && (
-              <div className={styles.errorContainer}>
-                <FiAlertTriangle className={styles.errorIcon} />
-                <span className={styles.errorMessage}>{pkg.lastError}</span>
-              </div>
-            )}
-          </>
+          <div className={styles.badges}>
+            <span className={styles.installedBadge}>
+              <span className={styles.badgeIcon}>✓</span>
+              Installed
+            </span>
+          </div>
         )}
       </div>
+
+      <p className={styles.description}>{pkg.description}</p>
+
+      <div className={styles.badges}>
+        {pkg.category && (
+          <div className={styles.categoryBadge}>
+            <FiInfo className={styles.badgeIcon} />
+            {pkg.category}
+          </div>
+        )}
+        {pkg.tags && pkg.tags.map(tag => (
+          <div key={tag} className={styles.tagBadge}>
+            <FiTag className={styles.badgeIcon} />
+            {tag}
+          </div>
+        ))}
+      </div>
+
+      {pkg.isInstalled && (
+        <div className={styles.details}>
+          <div className={styles.detailItem}>
+            <span className={styles.detailLabel}>Version:</span>
+            <span className={styles.detailValue}>{pkg.installedVersion || 'Unknown'}</span>
+          </div>
+          <div className={styles.detailItem}>
+            <span className={styles.detailLabel}>Installed:</span>
+            <span className={styles.detailValue}>
+              {pkg.installedAt ? formatDate(new Date(pkg.installedAt)) : 'Unknown'}
+            </span>
+          </div>
+          <div className={styles.detailItem}>
+            <span className={styles.detailLabel}>Path:</span>
+            <span className={styles.detailValue} title={pkg.installPath || ''}>
+              {pkg.installPath ?
+                (pkg.installPath.length > 25 ?
+                  `...${pkg.installPath.substring(pkg.installPath.length - 25)}` :
+                  pkg.installPath) :
+                'Unknown'}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {pkg.lastError && (
+        <div className={styles.errorContainer}>
+          <FiInfo className={styles.errorIcon} />
+          <span className={styles.errorMessage}>{pkg.lastError}</span>
+        </div>
+      )}
 
       <div className={styles.githubInfo}>
         <a
@@ -122,24 +100,11 @@ export const PackageCard: React.FC<PackageCardProps> = ({
           target="_blank"
           rel="noopener noreferrer"
           className={styles.githubLink}
+          onClick={(e) => e.stopPropagation()}
         >
           <FiGithub />
-          View on GitHub
+          {pkg.githubUrl.replace('https://github.com/', '')}
         </a>
-      </div>
-
-      <div className={styles.commandsContainer}>
-        <h4 className={styles.commandsTitle}>
-          <FiInfo className={styles.commandsIcon} />
-          Installation Commands
-        </h4>
-        <div className={styles.commandsList}>
-          {commands.map((cmd, index) => (
-            <code key={index} className={styles.commandCode}>
-              {cmd}
-            </code>
-          ))}
-        </div>
       </div>
 
       <div className={styles.actions}>

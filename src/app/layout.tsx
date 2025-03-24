@@ -21,18 +21,23 @@ export default function RootLayout({
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      console.log('[Layout] Initializing auth state');
       // Check if auth is set up
       const hasAuthToken = localStorage.getItem(config.auth.tokenName) !== null;
       const isPublicMode = localStorage.getItem(config.auth.publicModeFlag) === 'true';
 
+      console.log('[Layout] Auth check:', { hasAuthToken, isPublicMode });
+
       // If we have auth info or we're in public mode, mark auth as ready
       if (hasAuthToken || isPublicMode) {
+        console.log('[Layout] Auth ready - token or public mode detected');
         setIsAuthReady(true);
       } else {
-        // Small delay to allow auth to initialize
+        // Increased timeout to allow auth to initialize
         const timer = setTimeout(() => {
+          console.log('[Layout] Auth ready - timed initialization');
           setIsAuthReady(true);
-        }, 300);
+        }, 800); // Increased from 300ms to 800ms for more reliable initialization
 
         return () => clearTimeout(timer);
       }

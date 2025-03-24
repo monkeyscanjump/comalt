@@ -4,167 +4,226 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import packages from '@/config/packages.json';
 import { extractTokenFromHeader, verifyToken } from '@/utils/auth';
-import { execSync } from 'child_process';
 import fs from 'fs';
 import { Package } from '@/types/packages';
 
-// List all packages and their status
+// GET handler for fetching packages
 export async function GET(request: NextRequest) {
+  console.log('GET /api/packages - Fetching packages list');
+
   try {
     // Get token from request header
     const authHeader = request.headers.get('authorization');
     const token = extractTokenFromHeader(authHeader);
 
     if (!token) {
+      console.log('GET /api/packages - Unauthorized (no token)');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Verify the token
     const payload = verifyToken(token);
     if (!payload) {
+      console.log('GET /api/packages - Unauthorized (invalid token)');
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
-    // Get installed packages from the database
+    console.log('GET /api/packages - Authorized, fetching data');
+
+    // Get packages from the database for installation status
     const installedPackages = await prisma.appPackage.findMany();
+    console.log(`Found ${installedPackages.length} package records in database`);
 
-    // Merge installed status with package definitions
-    const packageList = (packages.packages as any[]).map(pkgDef => {
-      const installed = installedPackages.find((p: { id: string }) => p.id === pkgDef.id);
-
-      return {
-        ...pkgDef,
-        isInstalled: !!installed,
-        installedVersion: installed?.installedVersion || null,
-        installedAt: installed?.installedAt ? installed.installedAt.toISOString() : null,
-        installPath: installed?.installPath || pkgDef.defaultInstallPath || null,
-        lastCheckedAt: installed?.lastCheckedAt ? installed.lastCheckedAt.toISOString() : null,
-        lastError: installed?.lastError || null
-      } as Package;
+    installedPackages.forEach(pkg => {
+      console.log(`DB Package ${pkg.id}: isInstalled=${pkg.isInstalled}`);
     });
 
-    return NextResponse.json(packageList);
+    // Get package definitions from config file
+    const packageDefinitions = (packages.packages || []) as any[];
+    console.log(`Found ${packageDefinitions.length} package definitions in config`);
+
+    // Merge package definitions with installation status
+    const packageList = packageDefinitions.map(pkgDef => {
+      const dbRecord = installedPackages.find((p: { id: string }) => p.id === pkgDef.id);
+
+      // Determine if it's actually installed
+      const isActuallyInstalled = dbRecord?.isInstalled === true;
+
+      // If marked as installed, verify directory still exists
+      let installVerified = isActuallyInstalled;
+      let verificationError = null;
+
+      if (isActuallyInstalled && dbRecord?.installPath) {
+        try {
+          const directoryExists = fs.existsSync(dbRecord.installPath);
+          const isEmpty = directoryExists ?
+            fs.readdirSync(dbRecord.installPath).length === 0 : true;
+
+          if (!directoryExists || isEmpty) {
+            installVerified = false;
+            verificationError = !directoryExists ?
+              "Installation directory not found" :
+              "Installation directory is empty";
+            console.log(`Package ${pkgDef.id} verification failed: ${verificationError}`);
+          }
+        } catch (error) {
+          console.error(`Error verifying package ${pkgDef.id}:`, error);
+          installVerified = false;
+          verificationError = "Error verifying installation";
+        }
+      }
+
+      // Create the full package object
+      const fullPackage = {
+        ...pkgDef,
+        isInstalled: installVerified,
+        installedVersion: dbRecord?.installedVersion || null,
+        installedAt: dbRecord?.installedAt ? dbRecord.installedAt.toISOString() : null,
+        installPath: dbRecord?.installPath || pkgDef.defaultInstallPath || null,
+        lastCheckedAt: dbRecord?.lastCheckedAt ? dbRecord.lastCheckedAt.toISOString() : null,
+        lastError: verificationError || dbRecord?.lastError || null,
+        requiresRepair: isActuallyInstalled !== installVerified
+      } as Package & { requiresRepair: boolean };
+
+      return fullPackage;
+    });
+
+    // Add cache prevention headers
+    const headers = new Headers();
+    headers.append('Cache-Control', 'no-cache, no-store, must-revalidate');
+    headers.append('Pragma', 'no-cache');
+    headers.append('Expires', '0');
+
+    console.log(`Returning ${packageList.length} packages`);
+    return NextResponse.json(packageList, { headers });
   } catch (error) {
-    console.error('Error fetching packages:', error);
+    console.error('Error in GET /api/packages:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+
     return NextResponse.json(
-      { error: 'Failed to fetch packages', details: error instanceof Error ? error.message : String(error) },
+      {
+        error: 'Failed to fetch packages',
+        details: errorMessage
+      },
       { status: 500 }
     );
   }
 }
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+
+// POST handler for database repair
+export async function POST(request: NextRequest) {
+  console.log('POST /api/packages - Starting database repair');
+
   try {
     // Get token from request header
     const authHeader = request.headers.get('authorization');
     const token = extractTokenFromHeader(authHeader);
 
     if (!token) {
+      console.log('POST /api/packages - Unauthorized (no token)');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Verify the token
     const payload = verifyToken(token);
     if (!payload) {
+      console.log('POST /api/packages - Unauthorized (invalid token)');
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
-    // Get package ID from params
-    const { id } = params;
-
-    // Find package in definitions
-    const packageDef = packages.packages.find(p => p.id === id);
-    if (!packageDef) {
-      return NextResponse.json(
-        { error: 'Package not found' },
-        { status: 404 }
-      );
+    // Parse request body if available
+    let repairOptions = {};
+    try {
+      repairOptions = await request.json();
+    } catch (e) {
+      // No body or invalid JSON - use defaults
+      repairOptions = {};
     }
 
-    // Get request body for custom install path
-    const body = await request.json();
-    const installPath = body.installPath || packageDef.defaultInstallPath;
+    console.log('Repair options:', repairOptions);
 
-    // Make sure install path exists
-    if (!fs.existsSync(installPath)) {
-      fs.mkdirSync(installPath, { recursive: true });
-    }
+    // Get all packages that might need repair
+    const packagesToCheck = await prisma.appPackage.findMany();
+    console.log(`Found ${packagesToCheck.length} packages to check for repair`);
 
-    // Clone repository
-    execSync(`git clone ${packageDef.githubUrl} ${installPath}`, {
-      stdio: 'inherit'
-    });
+    const repaired = [];
+    const errors = [];
 
-    // Run install commands
-    for (const cmd of packageDef.installCommands) {
-      const resolvedCmd = cmd.replace(/\{\{installPath\}\}/g, installPath);
-      execSync(resolvedCmd, { stdio: 'inherit' });
-    }
+    // Check each package
+    for (const pkg of packagesToCheck) {
+      try {
+        const { id, name, installPath, lastError, isInstalled } = pkg;
 
-    // Get git version information
-    const version = execSync('git describe --tags --always', {
-      cwd: installPath,
-      encoding: 'utf-8'
-    }).trim();
+        // Conditions for repair:
+        // 1. Marked as installed but has error
+        // 2. Marked as installed but has no path
+        // 3. Marked as installed but path doesn't exist or is empty
+        const needsRepair = isInstalled && (
+          lastError ||
+          !installPath ||
+          (installPath && (!fs.existsSync(installPath) || fs.readdirSync(installPath).length === 0))
+        );
 
-    // Create or update package in database - use lowercase for model name
-    const now = new Date();
-    await prisma.appPackage.upsert({
-      where: { id },
-      update: {
-        isInstalled: true,
-        installedVersion: version,
-        installPath,
-        installedAt: now,
-        lastCheckedAt: now,
-        lastError: null
-      },
-      create: {
-        id,
-        name: packageDef.name,
-        description: packageDef.description,
-        githubUrl: packageDef.githubUrl,
-        installCommands: Array.isArray(packageDef.installCommands)
-          ? JSON.stringify(packageDef.installCommands)
-          : packageDef.installCommands,
-        isInstalled: true,
-        installedVersion: version,
-        installPath,
-        installedAt: now,
-        lastCheckedAt: now
+        if (needsRepair) {
+          console.log(`Repairing package ${id} (${name})`);
+
+          // Determine reason for repair
+          let reason = "Unknown issue";
+          if (lastError) reason = "Has installation error";
+          else if (!installPath) reason = "Missing install path";
+          else if (!fs.existsSync(installPath)) reason = "Directory not found";
+          else reason = "Directory empty";
+
+          console.log(`Repair reason: ${reason}`);
+
+          // Update database to mark as not installed
+          await prisma.appPackage.update({
+            where: { id },
+            data: {
+              isInstalled: false,
+              installedVersion: null,
+              installedAt: null,
+              lastCheckedAt: new Date(),
+              lastError: `Fixed by database repair: ${reason.toLowerCase()}`
+            }
+          });
+
+          repaired.push({
+            id,
+            name,
+            reason
+          });
+        }
+      } catch (pkgError) {
+        console.error(`Error repairing package ${pkg.id}:`, pkgError);
+        errors.push({
+          id: pkg.id,
+          name: pkg.name,
+          error: pkgError instanceof Error ? pkgError.message : String(pkgError)
+        });
       }
-    });
+    }
+
+    // Add cache prevention headers
+    const headers = new Headers();
+    headers.append('Cache-Control', 'no-cache, no-store, must-revalidate');
+    headers.append('Pragma', 'no-cache');
+    headers.append('Expires', '0');
 
     return NextResponse.json({
       success: true,
-      message: `Package ${packageDef.name} installed successfully`,
-      installedVersion: version,
-      installPath
-    });
+      repaired,
+      errors,
+      message: `Repaired ${repaired.length} package records${errors.length > 0 ? ` with ${errors.length} errors` : ''}`
+    }, { headers });
   } catch (error) {
-    console.error(`Error installing package ${params?.id}:`, error);
-
-    // Record error in database - use lowercase for model name
-    if (params?.id) {
-      try {
-        await prisma.appPackage.update({
-          where: { id: params.id },
-          data: {
-            lastError: error instanceof Error ? error.message : String(error),
-            lastCheckedAt: new Date()
-          }
-        });
-      } catch (dbError) {
-        console.error('Failed to update package error status:', dbError);
-      }
-    }
+    console.error('Error in POST /api/packages:', error);
+    const errorDetails = error instanceof Error ? error.message : String(error);
 
     return NextResponse.json(
       {
-        error: 'Failed to install package',
-        details: error instanceof Error ? error.message : String(error)
+        error: 'Failed to repair packages',
+        details: errorDetails
       },
       { status: 500 }
     );

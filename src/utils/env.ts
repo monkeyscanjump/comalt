@@ -48,5 +48,26 @@ export function getEnvironmentConfig() {
  */
 export function getPublicEnv(key: string, defaultValue?: string): string {
   const fullKey = `NEXT_PUBLIC_${key}`;
-  return getEnvVariable(fullKey, defaultValue);
+
+  // Check if we're in the browser
+  if (typeof window !== 'undefined') {
+    // Use safe type assertion instead of @ts-ignore
+    const nextData = window as any;
+
+    // Try to get from Next.js runtime config
+    if (nextData.__NEXT_DATA__?.runtimeConfig?.[fullKey]) {
+      return nextData.__NEXT_DATA__.runtimeConfig[fullKey];
+    }
+
+    // Then check process.env which Next.js makes available for NEXT_PUBLIC_ vars
+    if (process.env[fullKey]) {
+      return process.env[fullKey];
+    }
+
+    // Fallback to default value
+    return defaultValue || '';
+  }
+
+  // Server-side rendering - directly access process.env
+  return process.env[fullKey] || defaultValue || '';
 }

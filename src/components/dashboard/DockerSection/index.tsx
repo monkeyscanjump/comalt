@@ -290,113 +290,105 @@ export const DockerSection: React.FC<DockerSectionProps> = ({
         </div>
       )}
 
-      {/* Docker Status Card */}
-      <div className={dockerStyles.dockerRow}>
-        <div className={styles.card} style={{ width: '100%' }}>
-          <h3 className={styles.cardSubtitle}>Docker Status</h3>
-          <div className={styles.cardContent}>
-            {osInfo ? (
-              <div>
-                <p>
-                  <strong>Status:</strong>{' '}
-                  {dockerInstalled ? (
-                    <span className={`${styles.badge} ${styles.badgeSuccess}`}>
-                      <FiCheck /> Installed ({dockerVersion})
-                    </span>
-                  ) : (
-                    <span className={`${styles.badge} ${styles.badgeWarning}`}>
-                      Not installed
-                    </span>
-                  )}
-                </p>
-                {dockerInstalled && (
-                  <div>
-                    <p>You can use Docker commands in your terminal:</p>
-                    <div className={dockerStyles.commandExamples}>
-                      docker --version<br />
-                      docker ps<br />
-                      docker run hello-world
-                    </div>
-
-                    {/* Show more details in detailed mode */}
-                    {displayMode === 'detailed' && (
-                      <div className={styles.detailedInfo}>
-                        <h4>Container Management</h4>
-                        <p>Common Docker commands:</p>
-                        <div className={dockerStyles.commandExamples}>
-                          docker images<br />
-                          docker pull image:tag<br />
-                          docker container ls<br />
-                          docker-compose up -d
-                        </div>
-                      </div>
-                    )}
-                  </div>
+      {/* Docker status section */}
+      <div className={dockerStyles.sectionContent}>
+        <div className={dockerStyles.statusContainer}>
+          <h3 className={dockerStyles.subheading}>Docker Status</h3>
+          {osInfo ? (
+            <div>
+              <p className={dockerStyles.statusInfo}>
+                <span className={dockerStyles.label}>Status:</span>
+                {dockerInstalled ? (
+                  <span className={`${styles.badge} ${styles.badgeSuccess}`}>
+                    <FiCheck /> Installed ({dockerVersion})
+                  </span>
+                ) : (
+                  <span className={`${styles.badge} ${styles.badgeWarning}`}>
+                    Not installed
+                  </span>
                 )}
-              </div>
-            ) : (
-              <p>Loading Docker status...</p>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Docker Installation Card - Only shown if Docker is not installed */}
-      {(!dockerInstalled && osInfo) && (
-        <div className={dockerStyles.dockerRow}>
-          <div className={styles.card} style={{ width: '100%' }}>
-            <h3 className={styles.cardSubtitle}>Docker Installation</h3>
-            <div className={styles.cardContent}>
-              {installationStatus === 'installing' ? (
+              </p>
+              {dockerInstalled && (
                 <div>
-                  <h4>Installing Docker...</h4>
-                  <div className={dockerStyles.terminal}>
-                    <div className={dockerStyles.terminalHeader}>
-                      <FiTerminal /> Installation Log
-                    </div>
-                    <div className={dockerStyles.terminalContent}>
-                      <pre>{installLog}</pre>
-                    </div>
+                  <p>You can use Docker commands in your terminal:</p>
+                  <div className={dockerStyles.commandExamples}>
+                    docker --version<br />
+                    docker ps<br />
+                    docker run hello-world
                   </div>
-                  <div className={styles.loadingContainer}>
-                    <div className={styles.spinner}></div>
-                  </div>
-                  <p style={{ textAlign: 'center' }}>Please wait while Docker is being installed...</p>
+
+                  {/* Show more details in detailed mode */}
+                  {displayMode === 'detailed' && (
+                    <div className={styles.detailedInfo}>
+                      <h4>Container Management</h4>
+                      <p>Common Docker commands:</p>
+                      <div className={dockerStyles.commandExamples}>
+                        docker images<br />
+                        docker pull image:tag<br />
+                        docker container ls<br />
+                        docker-compose up -d
+                      </div>
+                    </div>
+                  )}
                 </div>
-              ) : (
-                <>
-                  <div className={dockerStyles.instructions}>
-                    {getDockerInstructions()}
-                  </div>
-
-                  <div style={{ textAlign: 'center', marginTop: 'var(--space-lg)' }}>
-                    <button
-                      className={styles.buttonPrimary}
-                      onClick={installDocker}
-                      disabled={!osInfo || installationStatus === 'checking'}
-                    >
-                      <FiDownload className={styles.buttonIconLeft} />
-                      Install Docker
-                    </button>
-
-                    <div style={{ marginTop: 'var(--space-md)' }}>
-                      <a
-                        href="https://docs.docker.com/get-docker/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={styles.manualLink}
-                      >
-                        <FiExternalLink />
-                        Manual installation instructions
-                      </a>
-                    </div>
-                  </div>
-                </>
               )}
             </div>
-          </div>
+          ) : (
+            <p>Loading Docker status...</p>
+          )}
         </div>
-      )}
+
+        {/* Docker Installation section - Only shown if Docker is not installed */}
+        {(!dockerInstalled && osInfo) && (
+          <div className={dockerStyles.installContainer}>
+            <h3 className={dockerStyles.subheading}>Docker Installation</h3>
+            {installationStatus === 'installing' ? (
+              <div>
+                <h4>Installing Docker...</h4>
+                <div className={dockerStyles.terminal}>
+                  <div className={dockerStyles.terminalHeader}>
+                    <FiTerminal /> Installation Log
+                  </div>
+                  <div className={dockerStyles.terminalContent}>
+                    <pre>{installLog}</pre>
+                  </div>
+                </div>
+                <div className={styles.loadingContainer}>
+                  <div className={styles.spinner}></div>
+                </div>
+                <p style={{ textAlign: 'center' }}>Please wait while Docker is being installed...</p>
+              </div>
+            ) : (
+              <>
+                <div className={dockerStyles.instructions}>
+                  {getDockerInstructions()}
+                </div>
+
+                <div className={dockerStyles.actionContainer}>
+                  <button
+                    className={styles.buttonPrimary}
+                    onClick={installDocker}
+                    disabled={!osInfo || installationStatus === 'checking'}
+                  >
+                    <FiDownload className={styles.buttonIconLeft} />
+                    Install Docker
+                  </button>
+
+                  <a
+                    href="https://docs.docker.com/get-docker/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={dockerStyles.manualLink}
+                  >
+                    <FiExternalLink />
+                    Manual installation instructions
+                  </a>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </div>
     </SectionContainer>
   );
 };

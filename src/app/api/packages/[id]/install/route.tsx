@@ -13,11 +13,11 @@ function safeExecSync(command: string, options: any = {}): string {
   try {
     // Default options that work better on Windows
     const defaultOptions = {
-      stdio: 'pipe', // Capture output instead of inheriting
-      shell: true,    // Use shell on Windows
+      stdio: 'pipe', // Capture output
+      shell: true,   // Use shell on Windows
       timeout: 300000, // 5 minute timeout
       maxBuffer: 10 * 1024 * 1024, // 10MB buffer for command output
-      windowsHide: true // Hide the console window that would normally open
+      windowsHide: true // Hide the console window
     };
 
     const mergedOptions = { ...defaultOptions, ...options };
@@ -36,42 +36,52 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  console.log(`Starting install process for package: ${params.id}`);
+
   try {
     // Get token from request header
     const authHeader = request.headers.get('authorization');
     const token = extractTokenFromHeader(authHeader);
 
     if (!token) {
+      console.log(`Unauthorized: No token provided`);
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Verify the token
     const payload = verifyToken(token);
     if (!payload) {
+      console.log(`Unauthorized: Invalid token`);
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
     // Get package ID from params
     const { id } = params;
+    console.log(`Looking up package: ${id}`);
 
     // Find package in definitions
     const packageDef = packages.packages.find((p: any) => p.id === id);
     if (!packageDef) {
+      console.log(`Package definition not found: ${id}`);
       return NextResponse.json(
         { error: 'Package not found' },
         { status: 404 }
       );
     }
 
+    console.log(`Found package definition: ${packageDef.name}`);
+
     // Get request body for custom install path
     const body = await request.json();
     const installPath = body.installPath || packageDef.defaultInstallPath;
 
-    // Normalize path for Windows (replace forward slashes with backslashes)
+    // Normalize path for Windows
     const normalizedPath = installPath.replace(/\//g, '\\');
+    console.log(`Install path: ${normalizedPath}`);
 
     // Make sure install path exists
     if (!fs.existsSync(normalizedPath)) {
+      console.log(`Creating directory: ${normalizedPath}`);
       fs.mkdirSync(normalizedPath, { recursive: true });
     }
 
@@ -80,10 +90,12 @@ export async function POST(
       console.log(`Directory ${normalizedPath} already exists and is not empty. Skipping git clone.`);
     } else {
       // Clone repository
+      console.log(`Cloning repository: ${packageDef.githubUrl}`);
       safeExecSync(`git clone ${packageDef.githubUrl} "${normalizedPath}"`);
     }
 
     // Run install commands
+    console.log(`Running install commands`);
     const commands = getCommandsAsArray(packageDef.installCommands);
     for (const cmd of commands) {
       const resolvedCmd = cmd.replace(/\{\{installPath\}\}/g, normalizedPath);
@@ -100,9 +112,11 @@ export async function POST(
     // Get git version information
     let version;
     try {
+      console.log(`Getting git version information`);
       version = safeExecSync('git describe --tags --always', {
         cwd: normalizedPath,
       }).trim();
+      console.log(`Git version: ${version}`);
     } catch (versionError) {
       console.warn("Failed to get git version, using fallback:", versionError);
       version = "unknown";
@@ -110,8 +124,9 @@ export async function POST(
 
     // Create or update package in database
     const now = new Date();
+    console.log(`Updating database`);
     try {
-      await prisma.appPackage.upsert({
+      const updatedPackage = await prisma.appPackage.upsert({
         where: { id },
         update: {
           isInstalled: true,
@@ -136,19 +151,31 @@ export async function POST(
           lastCheckedAt: now
         }
       });
+      console.log(`Database updated, isInstalled=${updatedPackage.isInstalled}`);
     } catch (dbError) {
       console.error("Database error during package upsert:", dbError);
       throw new Error(`Database error: ${dbError instanceof Error ? dbError.message : String(dbError)}`);
     }
 
+    // Add cache prevention headers
+    const headers = new Headers();
+    headers.append('Cache-Control', 'no-cache, no-store, must-revalidate');
+    headers.append('Pragma', 'no-cache');
+    headers.append('Expires', '0');
+
     return NextResponse.json({
       success: true,
       message: `Package ${packageDef.name} installed successfully`,
       installedVersion: version,
-      installPath: normalizedPath
-    });
+      installPath: normalizedPath,
+      packageData: {
+        id,
+        isInstalled: true // For client-side state updates
+      }
+    }, { headers });
   } catch (error) {
     console.error(`Error installing package ${params.id}:`, error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
 
     // Record error in database
     if (params?.id) {
@@ -163,10 +190,12 @@ export async function POST(
           await prisma.appPackage.update({
             where: { id: params.id },
             data: {
-              lastError: error instanceof Error ? error.message : String(error),
+              isInstalled: false, // Important: set to false when installation fails
+              lastError: errorMessage,
               lastCheckedAt: new Date()
             }
           });
+          console.log(`Updated existing package record with error status`);
         } else {
           // Create a new record if it doesn't exist
           const packageDef = packages.packages.find((p: any) => p.id === params.id);
@@ -181,11 +210,12 @@ export async function POST(
                   ? JSON.stringify(packageDef.installCommands)
                   : packageDef.installCommands)
                 : "[]",
-              isInstalled: false,
-              lastError: error instanceof Error ? error.message : String(error),
+              isInstalled: false, // Important: set to false on creation when there's an error
+              lastError: errorMessage,
               lastCheckedAt: new Date()
             }
           });
+          console.log(`Created new package record with error status`);
         }
       } catch (dbError) {
         console.error('Failed to update package error status:', dbError);
@@ -195,7 +225,7 @@ export async function POST(
     return NextResponse.json(
       {
         error: 'Failed to install package',
-        details: error instanceof Error ? error.message : String(error)
+        details: errorMessage
       },
       { status: 500 }
     );

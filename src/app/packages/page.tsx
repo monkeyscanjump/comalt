@@ -4,7 +4,7 @@ import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { PageWrapper } from '@/components/layout/PageWrapper';
 import AuthContext from '@/contexts/auth/AuthContext';
 import { LoadingState } from '@/components/LoadingState';
-import { FiPackage, FiRefreshCw, FiAlertTriangle, FiSearch, FiFilter } from 'react-icons/fi';
+import { FiPackage, FiRefreshCw, FiAlertTriangle, FiSearch, FiFilter, FiTool } from 'react-icons/fi';
 import styles from '@/app/page.module.css';
 import packageStyles from './packages.module.css';
 import { Package } from '@/types/packages';
@@ -20,44 +20,80 @@ export default function PackagesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [packageToInstall, setPackageToInstall] = useState<Package | null>(null);
+  const [packageToUninstall, setPackageToUninstall] = useState<Package | null>(null); // New state for uninstall modal
   const [isInstallingId, setIsInstallingId] = useState<string | null>(null);
   const [isUninstallingId, setIsUninstallingId] = useState<string | null>(null);
+  const [isRepairing, setIsRepairing] = useState(false);
 
   // Get token from auth context
   const token = auth?.token;
 
-  // Fetch packages data
+  // Detect database inconsistencies
+  const hasInconsistencies = packages.some(pkg =>
+    (pkg.isInstalled && pkg.lastError) ||
+    (pkg.isInstalled && (!pkg.installPath || pkg.installPath.trim() === ''))
+  );
+
+  // Fetch packages data with cache prevention
   const fetchPackages = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
 
-      const headers: HeadersInit = {};
+      const headers: HeadersInit = {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache'
+      };
+
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      const response = await fetch('/api/packages', { headers });
+      console.log("Fetching packages...");
+      const timestamp = new Date().getTime();
+      const response = await fetch(`/api/packages?t=${timestamp}`, {
+        headers,
+        cache: 'no-store'
+      });
 
       if (!response.ok) {
         throw new Error(`Failed to fetch packages: ${response.status}`);
       }
 
       const data = await response.json();
+      console.log("Packages fetched:", data.length);
+
       setPackages(data);
-      setFilteredPackages(data);
+
+      // Apply current filters to new data
+      let filtered = [...data];
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        filtered = filtered.filter(pkg =>
+          pkg.name.toLowerCase().includes(query) ||
+          (pkg.description?.toLowerCase().includes(query) || false) ||
+          (pkg.tags && pkg.tags.some((tag: string) => tag.toLowerCase().includes(query))) // Fixed type error here
+        );
+      }
+      if (selectedCategory) {
+        filtered = filtered.filter(pkg => pkg.category === selectedCategory);
+      }
+
+      setFilteredPackages(filtered);
     } catch (err) {
       setError(`Error fetching packages: ${err instanceof Error ? err.message : String(err)}`);
       console.error('Package fetch error:', err);
     } finally {
       setIsLoading(false);
     }
-  }, [token]);
+  }, [token, searchQuery, selectedCategory]);
 
   // Initial data fetch
   useEffect(() => {
     fetchPackages();
-  }, [fetchPackages]);
+    // Don't include searchQuery and selectedCategory in dependencies
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
 
   // Filter packages based on search query and category
   useEffect(() => {
@@ -68,8 +104,8 @@ export default function PackagesPage() {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(pkg =>
         pkg.name.toLowerCase().includes(query) ||
-        (pkg.description?.toLowerCase().includes(query) || false) || // Add null check with optional chaining
-        (pkg.tags && pkg.tags.some(tag => tag.toLowerCase().includes(query)))
+        (pkg.description?.toLowerCase().includes(query) || false) ||
+        (pkg.tags && pkg.tags.some((tag: string) => tag.toLowerCase().includes(query))) // Fixed type error here
       );
     }
 
@@ -82,7 +118,7 @@ export default function PackagesPage() {
   }, [packages, searchQuery, selectedCategory]);
 
   // Extract unique categories from packages
-  const categories = Array.from(new Set(packages.map(pkg => pkg.category)));
+  const categories = Array.from(new Set(packages.map(pkg => pkg.category).filter(Boolean)));
 
   // Handle search input
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -94,19 +130,46 @@ export default function PackagesPage() {
     setSelectedCategory(category === selectedCategory ? null : category);
   };
 
+  // Handle opening install modal
+  const handleInstallRequest = (pkg: Package) => {
+    setPackageToInstall(pkg);
+  };
+
+  // Handle opening uninstall modal
+  const handleUninstallRequest = (pkg: Package) => {
+    setPackageToUninstall(pkg);
+  };
+
   // Handle package installation
   const handleInstall = async (pkg: Package, installPath: string) => {
+    if (!installPath || installPath.trim() === '') {
+      setError('Please provide a valid installation path');
+      return;
+    }
+
     try {
       setIsInstallingId(pkg.id);
       setPackageToInstall(null);
+      setError(null);
+
+      console.log(`Installing package ${pkg.id} at ${installPath}`);
 
       const headers: HeadersInit = {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache'
       };
 
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
       }
+
+      // Immediately update UI state to show as installing
+      setPackages(prevPackages =>
+        prevPackages.map(p =>
+          p.id === pkg.id ? { ...p, isInstalling: true } : p
+        )
+      );
 
       const response = await fetch(`/api/packages/${pkg.id}/install`, {
         method: 'POST',
@@ -114,14 +177,36 @@ export default function PackagesPage() {
         body: JSON.stringify({ installPath })
       });
 
+      const data = await response.json();
+      console.log('Install response:', data);
+
       if (!response.ok) {
-        throw new Error(`Installation failed: ${response.statusText}`);
+        throw new Error(data.error || data.details || `Installation failed: ${response.statusText}`);
       }
 
-      // Update UI after successful installation
+      // Update the specific package in state
+      setPackages(prevPackages =>
+        prevPackages.map(p =>
+          p.id === pkg.id
+            ? {
+                ...p,
+                isInstalled: true,
+                installPath,
+                installedVersion: data.installedVersion,
+                installedAt: new Date().toISOString()
+              }
+            : p
+        )
+      );
+
+      // Full refresh to get all updated data
       await fetchPackages();
     } catch (err) {
+      console.error('Installation error:', err);
       setError(`Installation error: ${err instanceof Error ? err.message : String(err)}`);
+
+      // Refresh to get the correct state even after error
+      await fetchPackages();
     } finally {
       setIsInstallingId(null);
     }
@@ -129,33 +214,109 @@ export default function PackagesPage() {
 
   // Handle package uninstallation
   const handleUninstall = async (pkg: Package) => {
-    if (!confirm(`Are you sure you want to uninstall ${pkg.name}? This will remove all files.`)) {
-      return;
-    }
-
     try {
       setIsUninstallingId(pkg.id);
+      setPackageToUninstall(null); // Close the modal
+      setError(null);
 
-      const headers: HeadersInit = {};
+      console.log(`Uninstalling package ${pkg.id}`);
+
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache'
+      };
+
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
+      // Immediately update UI state to avoid stale data
+      setPackages(prevPackages =>
+        prevPackages.map(p =>
+          p.id === pkg.id
+            ? { ...p, isInstalled: false, installedVersion: null, installedAt: null }
+            : p
+        )
+      );
+
+      setFilteredPackages(prevFiltered =>
+        prevFiltered.map(p =>
+          p.id === pkg.id
+            ? { ...p, isInstalled: false, installedVersion: null, installedAt: null }
+            : p
+        )
+      );
+
+      // Send uninstall request
       const response = await fetch(`/api/packages/${pkg.id}/uninstall`, {
-        method: 'DELETE',
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ forceCleanup: true })
+      });
+
+      const data = await response.json();
+      console.log('Uninstall response:', data);
+
+      if (!response.ok && !data.success) {
+        throw new Error(data.error || data.details || `Uninstallation failed: ${response.statusText}`);
+      }
+
+      // Ensure we have the latest data
+      await fetchPackages();
+    } catch (err) {
+      console.error('Uninstall error:', err);
+      setError(`Uninstallation error: ${err instanceof Error ? err.message : String(err)}`);
+
+      // Still refresh packages to show current state
+      await fetchPackages();
+    } finally {
+      setIsUninstallingId(null);
+    }
+  };
+
+  // Handle database repair
+  const handleRepairDatabase = async () => {
+    if (!confirm('Are you sure you want to repair the package database? This will fix inconsistencies between installed packages and the database.')) {
+      return;
+    }
+
+    try {
+      setIsRepairing(true);
+      setError(null);
+
+      console.log('Repairing package database');
+
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache'
+      };
+
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch('/api/packages', {
+        method: 'POST',
         headers
       });
 
+      const data = await response.json();
+      console.log('Repair response:', data);
+
       if (!response.ok) {
-        throw new Error(`Uninstallation failed: ${response.statusText}`);
+        throw new Error(data.error || data.details || 'Database repair failed');
       }
 
-      // Update UI after successful uninstallation
+      setError(`Database repair completed: ${data.repaired.length} packages fixed`);
+
+      // Refresh packages list
       await fetchPackages();
     } catch (err) {
-      setError(`Uninstallation error: ${err instanceof Error ? err.message : String(err)}`);
+      console.error('Database repair error:', err);
+      setError(`Database repair failed: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
-      setIsUninstallingId(null);
+      setIsRepairing(false);
     }
   };
 
@@ -196,8 +357,35 @@ export default function PackagesPage() {
               <FiRefreshCw className={`${styles.buttonIconLeft} ${isLoading ? styles.spinning : ''}`} />
               {isLoading ? 'Refreshing...' : 'Refresh'}
             </button>
+
+            {/* Repair database button */}
+            {hasInconsistencies && (
+              <button
+                onClick={handleRepairDatabase}
+                className={styles.buttonWarning || styles.buttonSecondary}
+                disabled={isRepairing}
+              >
+                <FiTool className={styles.buttonIconLeft} />
+                {isRepairing ? 'Repairing...' : 'Repair Database'}
+              </button>
+            )}
           </div>
         </div>
+
+        {/* Database inconsistency warning */}
+        {hasInconsistencies && (
+          <div className={styles.warningBanner || styles.errorBanner}>
+            <div className={styles.errorContent}>
+              <FiAlertTriangle className={styles.errorIcon} />
+              <div className={styles.errorMessage}>
+                <p className={styles.errorText}>
+                  Some packages have installation issues but are still marked as installed.
+                  Use the "Repair Database" button to fix these inconsistencies.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Error display */}
         {error && (
@@ -209,10 +397,10 @@ export default function PackagesPage() {
               </div>
             </div>
             <button
-              onClick={handleRefresh}
-              className={styles.retryButton}
+              onClick={() => setError(null)}
+              className={styles.retryButton || styles.closeButton}
             >
-              Try Again
+              Dismiss
             </button>
           </div>
         )}
@@ -230,20 +418,22 @@ export default function PackagesPage() {
             />
           </div>
 
-          <div className={packageStyles.categoryFilters}>
-            <div className={packageStyles.filterLabel}>
-              <FiFilter /> Categories:
+          {categories.length > 0 && (
+            <div className={packageStyles.categoryFilters}>
+              <div className={packageStyles.filterLabel}>
+                <FiFilter /> Categories:
+              </div>
+              {categories.map(category => (
+                <button
+                  key={category}
+                  className={`${packageStyles.categoryButton} ${selectedCategory === category ? packageStyles.categoryActive : ''}`}
+                  onClick={() => handleCategoryChange(category)}
+                >
+                  {category}
+                </button>
+              ))}
             </div>
-            {categories.map(category => (
-              <button
-                key={category}
-                className={`${packageStyles.categoryButton} ${selectedCategory === category ? packageStyles.categoryActive : ''}`}
-                onClick={() => handleCategoryChange(category)}
-              >
-                {category}
-              </button>
-            ))}
-          </div>
+          )}
         </div>
 
         {/* Package grid */}
@@ -252,8 +442,8 @@ export default function PackagesPage() {
             <PackageCard
               key={pkg.id}
               package={pkg}
-              onInstall={() => setPackageToInstall(pkg)}
-              onUninstall={handleUninstall}
+              onInstall={() => handleInstallRequest(pkg)}
+              onUninstall={() => handleUninstallRequest(pkg)}
               isInstalling={isInstallingId === pkg.id}
               isUninstalling={isUninstallingId === pkg.id}
             />
@@ -282,8 +472,19 @@ export default function PackagesPage() {
       {packageToInstall && (
         <PackageInstallModal
           package={packageToInstall}
+          mode="install"
           onInstall={handleInstall}
           onCancel={() => setPackageToInstall(null)}
+        />
+      )}
+
+      {/* Uninstall modal */}
+      {packageToUninstall && (
+        <PackageInstallModal
+          package={packageToUninstall}
+          mode="uninstall"
+          onUninstall={handleUninstall}
+          onCancel={() => setPackageToUninstall(null)}
         />
       )}
     </PageWrapper>

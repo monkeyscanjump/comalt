@@ -6,6 +6,7 @@ import { transformSystemData } from '@/utils/dataTransformers';
 const SYSTEM_INFO_STORAGE_KEY = 'dashboard_system_info';
 const DEFAULT_RETRY_ATTEMPTS = 3;
 const DEFAULT_RETRY_DELAY = 2000; // 2 seconds
+const FETCH_TIMEOUT = 15000; // 15 seconds timeout for fetch operations
 
 // Component to property mapping - properly typed to fix the TypeScript error
 const COMPONENT_PROPERTY_MAP: Record<SystemInfoComponentKey, keyof SystemInfo> = {
@@ -37,6 +38,7 @@ type SystemInfoAction =
   | { type: 'FETCH_START', isInitialFetch: boolean }
   | { type: 'FETCH_SUCCESS', data: SystemInfo }
   | { type: 'FETCH_ERROR', error: string }
+  | { type: 'FORCE_EXIT_LOADING' } // New action to force exit loading state
   | { type: 'COMPONENT_REFRESH_START', component: SystemInfoComponentKey }
   | { type: 'COMPONENT_REFRESH_SUCCESS', component: SystemInfoComponentKey, data: Partial<SystemInfo> }
   | { type: 'COMPONENT_REFRESH_ERROR', component: SystemInfoComponentKey, error: string }
@@ -90,9 +92,17 @@ function systemInfoReducer(state: SystemInfoState, action: SystemInfoAction): Sy
       return {
         ...state,
         error: action.error,
-        loading: false,
+        loading: false, // Ensure loading is set to false on error
         isRefreshing: false,
         retryAttempts: state.retryAttempts + 1
+      };
+
+    case 'FORCE_EXIT_LOADING': // New case to force exit loading state
+      return {
+        ...state,
+        loading: false,
+        isRefreshing: false,
+        error: state.error || 'Loading timed out - please try again'
       };
 
     case 'COMPONENT_REFRESH_START':
@@ -106,7 +116,7 @@ function systemInfoReducer(state: SystemInfoState, action: SystemInfoAction): Sy
 
     case 'COMPONENT_REFRESH_SUCCESS': {
       // Create a new systemInfo object with updated component data
-      const updatedSystemInfo = { ...state.systemInfo, ...action.data };
+      const updatedSystemInfo = state.systemInfo ? { ...state.systemInfo, ...action.data } : action.data;
 
       return {
         ...state,
@@ -184,64 +194,110 @@ export function useSystemInfo({
 }: UseSystemInfoOptions = {}) {
   const [state, dispatch] = useReducer(systemInfoReducer, initialState);
 
+  // Debug logging function
+  const logDebug = useCallback((message: string, data?: any) => {
+    console.log(`[SystemInfo] ${message}`, data ? data : '');
+  }, []);
+
   // Fetch complete system info - Define this first so we can use it in useEffect
   const fetchSystemInfo = useCallback(async (isInitialFetch = false) => {
+    // Start a timeout to force exit loading state
+    const timeoutId = setTimeout(() => {
+      logDebug('TIMEOUT: Forcing exit from loading state');
+      dispatch({ type: 'FORCE_EXIT_LOADING' });
+    }, FETCH_TIMEOUT);
+
     dispatch({ type: 'FETCH_START', isInitialFetch });
+    logDebug(`Starting fetch (initial: ${isInitialFetch})`, { token: !!token, isPublicMode });
 
     try {
-      const headers: HeadersInit = {};
+      const headers: HeadersInit = {
+        'Cache-Control': 'no-cache, no-store',
+        'Pragma': 'no-cache'
+      };
+
       if (!isPublicMode && token) {
         headers.Authorization = `Bearer ${token}`;
+        logDebug('Using authentication token');
+      } else if (isPublicMode) {
+        logDebug('Using public mode, no token needed');
+      } else {
+        logDebug('WARNING: No token and not in public mode');
       }
+
+      // Add timestamp to prevent caching
+      const timestamp = new Date().getTime();
+      const url = `/api/system?t=${timestamp}`;
 
       // Implement retry logic
       let attempts = 0;
       let success = false;
-      let response;
+      let response = null;
 
       while (!success && attempts < DEFAULT_RETRY_ATTEMPTS) {
         try {
-          response = await fetch('/api/system', { headers });
+          logDebug(`Fetch attempt ${attempts + 1}/${DEFAULT_RETRY_ATTEMPTS}`);
+          response = await fetch(url, {
+            headers,
+            cache: 'no-store',
+            next: { revalidate: 0 }
+          });
           success = true;
         } catch (err) {
           attempts++;
+          logDebug(`Fetch network error (attempt ${attempts})`, err);
           if (attempts >= DEFAULT_RETRY_ATTEMPTS) throw err;
           await new Promise(resolve => setTimeout(resolve, DEFAULT_RETRY_DELAY));
         }
       }
 
       if (!response || !response.ok) {
-        let errorMessage = 'Failed to fetch system info';
+        logDebug(`Fetch failed with status: ${response?.status}`);
+        let errorMessage = `Failed to fetch system info (Status: ${response?.status || 'unknown'})`;
+
         try {
           const errorData = await response?.json();
-          errorMessage = errorData.error || errorMessage;
-        } catch {
+          logDebug('Error response data:', errorData);
+          errorMessage = errorData.error || errorData.message || errorMessage;
+        } catch (parseError) {
+          logDebug('Failed to parse error response', parseError);
           // If parsing fails, use default error message
         }
+
         throw new Error(errorMessage);
       }
 
       const data = await response.json();
+      logDebug('Fetch succeeded, data received');
+
+      // Clear the timeout
+      clearTimeout(timeoutId);
 
       // Apply data transformations to ensure consistency
       const transformedData = transformSystemData(data);
 
       dispatch({ type: 'FETCH_SUCCESS', data: transformedData });
       localStorage.setItem(SYSTEM_INFO_STORAGE_KEY, JSON.stringify(transformedData));
+      logDebug('State updated with new data');
     } catch (err) {
-      console.error('Error fetching system info:', err);
+      // Clear the timeout
+      clearTimeout(timeoutId);
+
+      logDebug('Error fetching system info:', err);
       dispatch({
         type: 'FETCH_ERROR',
         error: err instanceof Error ? err.message : String(err)
       });
     }
-  }, [isPublicMode, token]);
+  }, [isPublicMode, token, logDebug]);
 
   // Load persisted data on mount
   useEffect(() => {
+    logDebug('Component mounted, checking for cached data');
     try {
       const savedData = localStorage.getItem(SYSTEM_INFO_STORAGE_KEY);
       if (savedData) {
+        logDebug('Found cached data in localStorage');
         const parsedData = JSON.parse(savedData);
 
         // Apply any data transformations to ensure consistency
@@ -249,11 +305,14 @@ export function useSystemInfo({
 
         dispatch({ type: 'FETCH_SUCCESS', data: transformedData });
         dispatch({ type: 'UPDATE_CACHED_DATA' });
+        logDebug('Loaded cached data');
+      } else {
+        logDebug('No cached data found');
       }
     } catch (err) {
-      console.error('Failed to load saved system info:', err);
+      logDebug('Failed to load saved system info:', err);
     }
-  }, []);
+  }, [logDebug]);
 
   // Update cache whenever display data changes
   useEffect(() => {
@@ -262,38 +321,59 @@ export function useSystemInfo({
     }
   }, [state.displayData]);
 
-  // Auto-retry on error - Fixed missing dependency
+  // Auto-retry on error - Using fixed dependency
   useEffect(() => {
     if (state.error && state.retryAttempts <= DEFAULT_RETRY_ATTEMPTS) {
+      logDebug(`Auto-retrying after error (attempt ${state.retryAttempts})`);
       const timer = setTimeout(() => {
         fetchSystemInfo(true);
       }, DEFAULT_RETRY_DELAY * state.retryAttempts);
 
       return () => clearTimeout(timer);
     }
-  }, [state.error, state.retryAttempts, fetchSystemInfo]); // Added fetchSystemInfo to dependencies
+  }, [state.error, state.retryAttempts, fetchSystemInfo]);
 
   // Auto-refresh effect
   useEffect(() => {
     if (autoRefreshEnabled && refreshInterval > 0 && !state.loading) {
+      logDebug(`Setting up auto-refresh interval: ${refreshInterval}s`);
       const refreshTimer = setInterval(() => {
         fetchSystemInfo(false);
       }, refreshInterval * 1000);
 
       return () => clearInterval(refreshTimer);
     }
-  }, [autoRefreshEnabled, refreshInterval, state.loading, fetchSystemInfo]); // Added fetchSystemInfo to dependencies
+  }, [autoRefreshEnabled, refreshInterval, state.loading, fetchSystemInfo]);
 
   // Fetch specific component data
   const fetchComponentData = useCallback(async (component: SystemInfoComponentKey) => {
+    logDebug(`Fetching component data: ${component}`);
     dispatch({ type: 'COMPONENT_REFRESH_START', component });
+
+    // Start a timeout to ensure component loading state is cleared
+    const timeoutId = setTimeout(() => {
+      logDebug(`TIMEOUT: Component refresh timed out: ${component}`);
+      dispatch({
+        type: 'COMPONENT_REFRESH_ERROR',
+        component,
+        error: 'Request timed out'
+      });
+    }, FETCH_TIMEOUT);
 
     try {
       // Prepare headers
-      const headers: HeadersInit = {};
+      const headers: HeadersInit = {
+        'Cache-Control': 'no-cache, no-store',
+        'Pragma': 'no-cache'
+      };
+
       if (!isPublicMode && token) {
         headers.Authorization = `Bearer ${token}`;
       }
+
+      // Add timestamp to prevent caching
+      const timestamp = new Date().getTime();
+      const url = `/api/system?component=${component}&t=${timestamp}`;
 
       // Implement retry logic
       let attempts = 0;
@@ -302,28 +382,42 @@ export function useSystemInfo({
 
       while (!success && attempts < DEFAULT_RETRY_ATTEMPTS) {
         try {
-          response = await fetch(`/api/system?component=${component}`, { headers });
+          logDebug(`Component fetch attempt ${attempts + 1}/${DEFAULT_RETRY_ATTEMPTS}`);
+          response = await fetch(url, {
+            headers,
+            cache: 'no-store',
+            next: { revalidate: 0 }
+          });
           success = true;
         } catch (err) {
           attempts++;
+          logDebug(`Component fetch network error (attempt ${attempts})`, err);
           if (attempts >= DEFAULT_RETRY_ATTEMPTS) throw err;
           await new Promise(resolve => setTimeout(resolve, DEFAULT_RETRY_DELAY));
         }
       }
 
       if (!response || !response.ok) {
-        let errorMessage = `Failed to fetch ${component} info`;
+        logDebug(`Component fetch failed with status: ${response?.status}`);
+        let errorMessage = `Failed to fetch ${component} info (Status: ${response?.status || 'unknown'})`;
+
         try {
           const errorData = await response?.json();
-          errorMessage = errorData.error || errorMessage;
-        } catch {
+          errorMessage = errorData.error || errorData.message || errorMessage;
+        } catch (parseError) {
           // If parsing fails, use default error message
         }
+
         throw new Error(errorMessage);
       }
 
+      // Clear the timeout
+      clearTimeout(timeoutId);
+
       // Parse the response
       const data = await response.json();
+      logDebug(`Component data received for ${component}`);
+
       const propertyKey = COMPONENT_PROPERTY_MAP[component];
 
       // Create data object to update
@@ -351,7 +445,9 @@ export function useSystemInfo({
       }
 
       // Apply data transformations to ensure consistency
-      const transformedData = transformSystemData({ ...state.systemInfo, ...updatedData });
+      const transformedData = state.systemInfo ?
+        transformSystemData({ ...state.systemInfo, ...updatedData }) :
+        transformSystemData(updatedData as SystemInfo);
 
       // Update state
       dispatch({
@@ -368,27 +464,45 @@ export function useSystemInfo({
         );
       }
     } catch (err) {
-      console.error(`Error fetching ${component} info:`, err);
+      // Clear the timeout
+      clearTimeout(timeoutId);
+
+      logDebug(`Error fetching ${component} info:`, err);
       dispatch({
         type: 'COMPONENT_REFRESH_ERROR',
         component,
         error: err instanceof Error ? err.message : String(err)
       });
     }
-  }, [isPublicMode, token, state.systemInfo]);
+  }, [isPublicMode, token, state.systemInfo, logDebug]);
 
   // Manual retry function for error recovery
   const retry = useCallback(() => {
+    logDebug('Manual retry initiated');
     dispatch({ type: 'RESET_ERROR' });
     fetchSystemInfo(true);
-  }, [fetchSystemInfo]);
+  }, [fetchSystemInfo, logDebug]);
 
-  // Auto-fetch on mount if requested - Fixed missing dependency
+  // Force loading state to end if it's been stuck for too long
   useEffect(() => {
-    if (autoFetch && !state.systemInfo && !state.isRefreshing && !state.loading) {
+    if (state.loading) {
+      logDebug('Setting up loading timeout safety');
+      const forceLoadingExitTimer = setTimeout(() => {
+        logDebug('TIMEOUT: Safety mechanism forcing exit from loading state');
+        dispatch({ type: 'FORCE_EXIT_LOADING' });
+      }, FETCH_TIMEOUT);
+
+      return () => clearTimeout(forceLoadingExitTimer);
+    }
+  }, [state.loading, logDebug]);
+
+  // Auto-fetch on mount if requested
+  useEffect(() => {
+    if (autoFetch) {
+      logDebug('Auto-fetching on mount');
       fetchSystemInfo(true);
     }
-  }, [autoFetch, state.systemInfo, state.isRefreshing, state.loading, fetchSystemInfo]); // Added fetchSystemInfo to dependencies
+  }, [autoFetch, fetchSystemInfo, logDebug]); // Simplified dependencies
 
   return {
     ...state,
