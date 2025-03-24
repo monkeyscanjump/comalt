@@ -343,9 +343,9 @@ export default function PackagesPage() {
               <FiPackage className={styles.titleIcon} />
               Packages
             </h1>
-            <p className={styles.lastRefresh}>
+            <span className={styles.lastRefresh}>
               Install and manage software packages
-            </p>
+            </span>
           </div>
 
           <div className={styles.controls}>

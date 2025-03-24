@@ -1,41 +1,24 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { getAuthToken, errorResponse, validateAuthToken } from '@/utils/api';
-import { isPublicMode } from '@/lib/whitelist-server';
+import { authenticateRequest, createApiResponse, createErrorResponse } from '@/utils/apiAuth';
 import path from 'path';
-import fs from 'fs/promises';
+import * as fsPromises from 'fs/promises';  // Promise-based fs methods
+import fs from 'fs';  // Regular fs module for synchronous methods
 import os from 'os';
 
 const execAsync = promisify(exec);
 
 export async function GET(request: NextRequest) {
   try {
-    // Check authorization
-    const publicMode = isPublicMode();
+    // Maintain proper authentication - only authorized users or public mode
+    const authResult = await authenticateRequest(request);
+    if (authResult.error) return authResult.error;
 
-    if (!publicMode) {
-      const token = getAuthToken(request);
-
-      if (!token) {
-        return errorResponse('Authentication required', 'AUTH_REQUIRED', 401);
-      }
-
-      const tokenResult = await validateAuthToken(token);
-
-      if (!tokenResult.valid) {
-        return errorResponse(
-          tokenResult.error || 'Invalid token',
-          tokenResult.errorCode || 'INVALID_TOKEN',
-          401
-        );
-      }
-
-      // Admin check
-      if (tokenResult.isAdmin !== true) {
-        return errorResponse('Admin privileges required', 'ADMIN_REQUIRED', 403);
-      }
-    }
+    console.log('GET /api/docker/status - Auth result:', {
+      authenticated: authResult.authenticated,
+      publicMode: authResult.publicMode
+    });
 
     // Check if progress info was requested
     const url = new URL(request.url);
@@ -45,10 +28,10 @@ export async function GET(request: NextRequest) {
     if (wantProgress) {
       try {
         const statusFile = path.join(os.tmpdir(), 'docker-install-status.json');
-        const status = JSON.parse(await fs.readFile(statusFile, 'utf-8'));
+        const status = JSON.parse(await fsPromises.readFile(statusFile, 'utf-8'));
 
         if (status.status === 'completed' && status.version) {
-          return NextResponse.json({
+          return createApiResponse({
             status: 'completed',
             version: status.version,
             installed: true
@@ -56,23 +39,23 @@ export async function GET(request: NextRequest) {
         }
 
         if (status.log) {
-          return NextResponse.json({
+          return createApiResponse({
             status: status.status,
             log: status.log
           });
         }
 
         if (status.error) {
-          return NextResponse.json({
+          return createApiResponse({
             status: 'error',
             error: status.error
           });
         }
 
-        return NextResponse.json(status);
+        return createApiResponse(status);
       } catch (err) {
         // Status file doesn't exist yet
-        return NextResponse.json({
+        return createApiResponse({
           status: 'unknown'
         });
       }
@@ -80,21 +63,99 @@ export async function GET(request: NextRequest) {
 
     // Check if Docker is installed by running docker --version
     try {
-      const { stdout } = await execAsync('docker --version');
-      return NextResponse.json({
-        installed: true,
-        version: stdout.trim()
-      });
+      console.log('Checking Docker installation with docker --version command');
+
+      // First attempt with normal command
+      try {
+        const { stdout } = await execAsync('docker --version', {
+          timeout: 5000,
+          env: { ...process.env, PATH: process.env.PATH }
+        });
+
+        console.log('Docker version found:', stdout.trim());
+
+        return createApiResponse({
+          installed: true,
+          version: stdout.trim()
+        });
+      } catch (primaryErr) {
+        console.log('Primary Docker check failed, trying alternative methods');
+
+        // Try with full path on Windows
+        if (process.platform === 'win32') {
+          try {
+            // Check common Windows Docker paths
+            const possiblePaths = [
+              'C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe',
+              'C:\\Program Files\\Docker\\Docker\\Docker for Windows.exe',
+              'C:\\ProgramData\\DockerDesktop\\version-bin\\docker.exe'
+            ];
+
+            for (const dockerPath of possiblePaths) {
+              if (fs.existsSync(dockerPath)) {  // Using synchronous existsSync from regular fs
+                console.log(`Found Docker at: ${dockerPath}`);
+
+                const { stdout } = await execAsync(`"${dockerPath}" --version`, {
+                  timeout: 5000
+                });
+
+                return createApiResponse({
+                  installed: true,
+                  version: stdout.trim(),
+                  path: dockerPath
+                });
+              }
+            }
+
+            throw new Error('Docker executable not found in expected locations');
+          } catch (windowsErr) {
+            console.warn('Windows Docker detection failed:', windowsErr);
+            throw primaryErr; // Rethrow the original error
+          }
+        } else {
+          // For Linux/Mac, check if the service is running
+          try {
+            if (process.platform === 'linux') {
+              const { stdout: serviceOutput } = await execAsync('systemctl is-active docker', { timeout: 3000 });
+              if (serviceOutput.trim() === 'active') {
+                return createApiResponse({
+                  installed: true,
+                  version: 'Service active (version check failed)',
+                  note: 'Docker service is running but version check failed'
+                });
+              }
+            } else if (process.platform === 'darwin') {
+              // Mac check for Docker.app
+              const { stdout: appOutput } = await execAsync('ls -la /Applications/Docker.app', { timeout: 3000 });
+              if (appOutput) {
+                return createApiResponse({
+                  installed: true,
+                  version: 'App installed (version check failed)',
+                  note: 'Docker app is installed but version check failed'
+                });
+              }
+            }
+          } catch (serviceErr) {
+            console.warn('Service check failed:', serviceErr);
+          }
+
+          throw primaryErr; // Rethrow the original error
+        }
+      }
     } catch (err) {
-      return NextResponse.json({
-        installed: false
+      // Log details about the Docker detection failure
+      console.warn('All Docker detection methods failed:', err instanceof Error ? err.message : String(err));
+
+      return createApiResponse({
+        installed: false,
+        error: err instanceof Error ? err.message : 'Failed to execute Docker command'
       });
     }
   } catch (err) {
     console.error('Error in Docker status API:', err);
-    return errorResponse(
+    return createErrorResponse(
       'Failed to check Docker status',
-      'DOCKER_STATUS_ERROR',
+      err instanceof Error ? err.message : String(err),
       500
     );
   }

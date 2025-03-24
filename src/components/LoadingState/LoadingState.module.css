@@ -5,43 +5,75 @@
   justify-content: center;
   flex-direction: column;
   gap: var(--space-md);
-  min-height: 400px;
+  min-height: 200px;
   width: 100%;
   margin: auto;
 }
 
-/* Simplified Spinner */
+/* Size variations */
+.sizeLarge {
+  min-height: 400px;
+}
+
+.sizeMedium {
+  min-height: 200px;
+}
+
+.sizeSmall {
+  min-height: 120px;
+  gap: var(--space-sm);
+}
+
+/* Spinner Container */
 .loadingSpinner {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 80px;
-  height: 80px;
 }
 
-/* Half Circles Animation */
-.halfCircle {
-  position: absolute;
+/* Modern spinner with multiple arcs */
+.spinner {
+  position: relative;
   width: 60px;
   height: 60px;
-  border: 4px solid transparent;
+}
+
+/* Arcs */
+.arc1, .arc2, .arc3 {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
   border-radius: 50%;
-  animation: spinAndChangeColor 3s ease-in-out infinite;
+  border: 3px solid transparent;
 }
 
-.halfCircle:nth-child(1) {
+/* Primary arc - outermost */
+.arc1 {
   border-top-color: var(--color-primary);
-  border-left-color: var(--color-primary);
-  animation-delay: -0.5s;
+  animation: spin 1.2s cubic-bezier(0.5, 0.1, 0.5, 0.9) infinite;
 }
 
-.halfCircle:nth-child(2) {
-  width: 40px;
-  height: 40px;
-  border-bottom-color: var(--color-success);
-  border-right-color: var(--color-success);
-  animation-direction: reverse;
+/* Secondary arc - middle */
+.arc2 {
+  width: 76%;
+  height: 76%;
+  margin: 12%;
+  border-right-color: var(--color-primary-light, var(--color-primary));
+  animation: spin 1.2s cubic-bezier(0.5, 0.1, 0.5, 0.9) infinite reverse;
+  opacity: 0.8;
+}
+
+/* Tertiary arc - innermost */
+.arc3 {
+  width: 52%;
+  height: 52%;
+  margin: 24%;
+  border-bottom-color: var(--color-primary-dark, var(--color-primary));
+  animation: spin 1.2s cubic-bezier(0.5, 0.1, 0.5, 0.9) infinite;
+  opacity: 0.6;
 }
 
 /* Loading Text */
@@ -49,43 +81,25 @@
   font-size: var(--font-size-md);
   color: var(--color-text-secondary);
   text-align: center;
-  max-width: 250px;
-  animation: textPulse 2s ease-in-out infinite;
+  max-width: 300px;
+  margin: 0;
+  animation: fadeInOut 2s ease-in-out infinite;
 }
 
-/* Animations */
-@keyframes spinAndChangeColor {
+/* Simple spin animation */
+@keyframes spin {
   0% {
     transform: rotate(0deg);
-    border-color: transparent;
   }
-
-  25% {
-    border-top-color: var(--color-primary);
-    border-left-color: var(--color-primary);
-  }
-
-  50% {
-    transform: rotate(360deg);
-    border-top-color: var(--color-success);
-    border-left-color: var(--color-success);
-  }
-
-  75% {
-    border-top-color: var(--color-warning);
-    border-left-color: var(--color-warning);
-  }
-
   100% {
-    transform: rotate(720deg);
-    border-top-color: var(--color-primary);
-    border-left-color: var(--color-primary);
+    transform: rotate(360deg);
   }
 }
 
-@keyframes textPulse {
+/* Text animation */
+@keyframes fadeInOut {
   0%, 100% {
-    opacity: 0.6;
+    opacity: 0.7;
   }
   50% {
     opacity: 1;
@@ -94,18 +108,51 @@
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
-  .loadingSpinner {
-    width: 60px;
-    height: 60px;
-  }
-
-  .halfCircle:nth-child(1) {
+  .spinner {
     width: 50px;
     height: 50px;
   }
 
-  .halfCircle:nth-child(2) {
-    width: 30px;
-    height: 30px;
+  .sizeSmall .spinner {
+    width: 32px;
+    height: 32px;
+  }
+
+  .sizeLarge .spinner {
+    width: 70px;
+    height: 70px;
+  }
+
+  .loadingText {
+    font-size: var(--font-size-sm);
+    max-width: 250px;
+  }
+}
+
+/* Small screens and mobile */
+@media (max-width: 480px) {
+  .loadingContainer {
+    min-height: 150px;
+  }
+
+  .sizeLarge {
+    min-height: 300px;
+  }
+
+  .sizeMedium {
+    min-height: 150px;
+  }
+
+  .sizeSmall {
+    min-height: 100px;
+  }
+
+  .spinner {
+    width: 40px;
+    height: 40px;
+  }
+
+  .arc1, .arc2, .arc3 {
+    border-width: 2px;
   }
 }

@@ -1,8 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { getAuthToken, errorResponse, validateAuthToken } from '@/utils/api';
-import { isPublicMode } from '@/lib/whitelist-server';
+import { authenticateRequest, createApiResponse, createErrorResponse } from '@/utils/apiAuth';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
@@ -11,31 +10,9 @@ const execAsync = promisify(exec);
 
 export async function POST(request: NextRequest) {
   try {
-    // Check authorization
-    const publicMode = isPublicMode();
-
-    if (!publicMode) {
-      const token = getAuthToken(request);
-
-      if (!token) {
-        return errorResponse('Authentication required', 'AUTH_REQUIRED', 401);
-      }
-
-      const tokenResult = await validateAuthToken(token);
-
-      if (!tokenResult.valid) {
-        return errorResponse(
-          tokenResult.error || 'Invalid token',
-          tokenResult.errorCode || 'INVALID_TOKEN',
-          401
-        );
-      }
-
-      // Admin check
-      if (tokenResult.isAdmin !== true) {
-        return errorResponse('Admin privileges required', 'ADMIN_REQUIRED', 403);
-      }
-    }
+    // Check authorization using our new utility
+    const authResult = await authenticateRequest(request, true); // true for requireAdmin
+    if (authResult.error) return authResult.error;
 
     // Get installation options from request body
     const body = await request.json();
@@ -99,11 +76,7 @@ export async function POST(request: NextRequest) {
         echo "Installation package downloaded to: ${path.join(tempDir, 'Docker.dmg')}" >> ${logFile}
       `;
     } else {
-      return errorResponse(
-        `Unsupported platform: ${platform}`,
-        'UNSUPPORTED_PLATFORM',
-        400
-      );
+      return createErrorResponse(`Unsupported platform: ${platform}`, { code: 'UNSUPPORTED_PLATFORM' }, 400);
     }
 
     // Execute installation in background
@@ -156,7 +129,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Return immediate response
-    return NextResponse.json({
+    return createApiResponse({
       message: 'Docker installation started',
       status: 'installing',
       logFile
@@ -164,9 +137,9 @@ export async function POST(request: NextRequest) {
 
   } catch (err) {
     console.error('Error in Docker installation API:', err);
-    return errorResponse(
+    return createErrorResponse(
       'Failed to start Docker installation',
-      'DOCKER_INSTALL_ERROR',
+      err instanceof Error ? err.message : String(err),
       500
     );
   }

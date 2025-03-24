@@ -1,34 +1,25 @@
 export const dynamic = 'force-dynamic';
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
 import packages from '@/config/packages.json';
-import { extractTokenFromHeader, verifyToken } from '@/utils/auth';
 import fs from 'fs';
 import { Package } from '@/types/packages';
+import { authenticateRequest, createApiResponse, createErrorResponse } from '@/utils/apiAuth';
 
 // GET handler for fetching packages
 export async function GET(request: NextRequest) {
   console.log('GET /api/packages - Fetching packages list');
 
   try {
-    // Get token from request header
-    const authHeader = request.headers.get('authorization');
-    const token = extractTokenFromHeader(authHeader);
+    // Use the new authentication utility
+    const authResult = await authenticateRequest(request);
+    if (authResult.error) return authResult.error;
 
-    if (!token) {
-      console.log('GET /api/packages - Unauthorized (no token)');
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Verify the token
-    const payload = verifyToken(token);
-    if (!payload) {
-      console.log('GET /api/packages - Unauthorized (invalid token)');
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
-
-    console.log('GET /api/packages - Authorized, fetching data');
+    console.log('GET /api/packages - Auth result:', {
+      authenticated: authResult.authenticated,
+      publicMode: authResult.publicMode
+    });
 
     // Get packages from the database for installation status
     const installedPackages = await prisma.appPackage.findMany();
@@ -88,25 +79,12 @@ export async function GET(request: NextRequest) {
       return fullPackage;
     });
 
-    // Add cache prevention headers
-    const headers = new Headers();
-    headers.append('Cache-Control', 'no-cache, no-store, must-revalidate');
-    headers.append('Pragma', 'no-cache');
-    headers.append('Expires', '0');
-
     console.log(`Returning ${packageList.length} packages`);
-    return NextResponse.json(packageList, { headers });
+    return createApiResponse(packageList);
   } catch (error) {
     console.error('Error in GET /api/packages:', error);
     const errorMessage = error instanceof Error ? error.message : String(error);
-
-    return NextResponse.json(
-      {
-        error: 'Failed to fetch packages',
-        details: errorMessage
-      },
-      { status: 500 }
-    );
+    return createErrorResponse('Failed to fetch packages', errorMessage);
   }
 }
 
@@ -115,21 +93,14 @@ export async function POST(request: NextRequest) {
   console.log('POST /api/packages - Starting database repair');
 
   try {
-    // Get token from request header
-    const authHeader = request.headers.get('authorization');
-    const token = extractTokenFromHeader(authHeader);
+    // Use the new authentication utility
+    const authResult = await authenticateRequest(request);
+    if (authResult.error) return authResult.error;
 
-    if (!token) {
-      console.log('POST /api/packages - Unauthorized (no token)');
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Verify the token
-    const payload = verifyToken(token);
-    if (!payload) {
-      console.log('POST /api/packages - Unauthorized (invalid token)');
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
+    console.log('POST /api/packages - Auth result:', {
+      authenticated: authResult.authenticated,
+      publicMode: authResult.publicMode
+    });
 
     // Parse request body if available
     let repairOptions = {};
@@ -204,28 +175,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Add cache prevention headers
-    const headers = new Headers();
-    headers.append('Cache-Control', 'no-cache, no-store, must-revalidate');
-    headers.append('Pragma', 'no-cache');
-    headers.append('Expires', '0');
-
-    return NextResponse.json({
+    return createApiResponse({
       success: true,
       repaired,
       errors,
       message: `Repaired ${repaired.length} package records${errors.length > 0 ? ` with ${errors.length} errors` : ''}`
-    }, { headers });
+    });
   } catch (error) {
     console.error('Error in POST /api/packages:', error);
     const errorDetails = error instanceof Error ? error.message : String(error);
-
-    return NextResponse.json(
-      {
-        error: 'Failed to repair packages',
-        details: errorDetails
-      },
-      { status: 500 }
-    );
+    return createErrorResponse('Failed to repair packages', errorDetails);
   }
 }

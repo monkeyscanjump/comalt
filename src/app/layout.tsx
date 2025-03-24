@@ -46,6 +46,33 @@ export default function RootLayout({
 
   return (
     <html lang="en" className={!isAuthReady ? 'no-content' : ''}>
+      <head>
+        {/* This script prevents theme flash by setting the theme before any rendering */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  // Get the saved theme using your app's specific key
+                  var savedTheme = localStorage.getItem('app-theme');
+
+                  if (savedTheme === 'dark' || savedTheme === 'light') {
+                    // Apply the saved theme immediately
+                    document.documentElement.setAttribute('data-theme', savedTheme);
+                  } else {
+                    // If no saved theme, check system preference
+                    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                    document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+                  }
+                } catch (e) {
+                  // Fallback if localStorage is not available
+                  console.error('Theme initialization failed:', e);
+                }
+              })();
+            `,
+          }}
+        />
+      </head>
       <body className={inter.className}>
         <AuthProvider>
           <ThemeProvider>

@@ -41,14 +41,6 @@ export interface AuthContextValue {
   isCheckingAllowlist: boolean;
 }
 
-export interface TokenPayload {
-  sub: string;
-  address: string;
-  isAdmin: boolean;
-  iat?: number;
-  exp?: number;
-}
-
 export interface AuthProviderProps {
   children: React.ReactNode;
 }

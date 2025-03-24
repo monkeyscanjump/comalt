@@ -1,4 +1,4 @@
-import { TokenCacheEntry } from "@/types/tokenCache";
+import { TokenCacheEntry } from "@/types/auth";
 
 // Add TypeScript global augmentation to avoid 'Property tokenCache does not exist on type Global' error
 declare global {

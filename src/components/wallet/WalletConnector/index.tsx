@@ -5,7 +5,8 @@ import { useAuth } from '@/contexts/auth';
 import { config } from '@/config';
 import styles from './WalletConnector.module.css';
 import AccountSelector from '@/components/wallet/AccountSelector';
-import { FiX, FiLogIn, FiLoader } from 'react-icons/fi';
+import { FiX, FiLoader } from 'react-icons/fi';
+import { FaWallet } from 'react-icons/fa';
 
 /**
  * WalletConnector component handles wallet connection state display.
@@ -20,9 +21,12 @@ const WalletConnector = () => {
     logout,
     error: authError,
     showAccountSelector,
+    setShowAccountSelector,
     isWalletConnected,
     walletAddress,
-    isAuthenticated
+    isAuthenticated,
+    accounts,
+    selectAccount
   } = useAuth();
 
   // Local state for persisting wallet name
@@ -41,6 +45,15 @@ const WalletConnector = () => {
       setLocalError(null);
     }
   }, [isWalletConnected, isAuthenticated]);
+
+  // Auto-select if there's only one account
+  useEffect(() => {
+    if (accounts?.length === 1 && showAccountSelector) {
+      // Auto-select the only account and hide selector
+      selectAccount(accounts[0]);
+      setShowAccountSelector(false);
+    }
+  }, [accounts, showAccountSelector, selectAccount, setShowAccountSelector]);
 
   /**
    * Effect for managing wallet name persistence
@@ -132,7 +145,7 @@ const WalletConnector = () => {
             </>
           ) : (
             <>
-              <FiLogIn />
+              <FaWallet />
               <span>Connect Wallet</span>
             </>
           )}
@@ -155,7 +168,8 @@ const WalletConnector = () => {
         </button>
       )}
 
-      {showAccountSelector && <AccountSelector />}
+      {/* Only show account selector if there are multiple accounts */}
+      {showAccountSelector && accounts && accounts.length > 1 && <AccountSelector />}
     </div>
   );
 };

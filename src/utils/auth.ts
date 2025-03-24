@@ -1,15 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { isAddressAllowed } from '@/config/whitelist';
 import prisma from '@/lib/prisma';
-
-// Define type for token payload
-export interface TokenPayload {
-  sub: string;          // User ID
-  address: string;      // Wallet address
-  isAdmin?: boolean;    // Admin status flag
-  iat?: number;         // Issued at timestamp
-  exp?: number;         // Expiration timestamp
-}
+import { TokenPayload } from '@/types/auth';
 
 // Get JWT secret from environment
 export function getJwtSecret(): string {

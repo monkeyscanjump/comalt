@@ -1,7 +1,6 @@
+export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { isPublicMode, getAllowedAddresses } from '@/lib/whitelist-server';
-
-export const dynamic = 'force-dynamic'; // Ensures the response isn't cached
 
 export async function GET() {
   const publicMode = isPublicMode();

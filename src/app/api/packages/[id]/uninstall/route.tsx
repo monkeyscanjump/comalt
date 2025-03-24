@@ -1,10 +1,10 @@
 export const dynamic = 'force-dynamic';
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
-import { extractTokenFromHeader, verifyToken } from '@/utils/auth';
 import fs from 'fs';
 import { rimraf } from 'rimraf';
+import { authenticateRequest, createApiResponse, createErrorResponse } from '@/utils/apiAuth';
 
 export async function POST(
   request: NextRequest,
@@ -13,21 +13,12 @@ export async function POST(
   console.log(`Starting uninstall process for package: ${params.id}`);
 
   try {
-    // Get token from request header
-    const authHeader = request.headers.get('authorization');
-    const token = extractTokenFromHeader(authHeader);
+    // Use the new authentication utility
+    const authResult = await authenticateRequest(request);
+    if (authResult.error) return authResult.error;
 
-    if (!token) {
-      console.log(`Unauthorized: No token provided`);
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Verify the token
-    const payload = verifyToken(token);
-    if (!payload) {
-      console.log(`Unauthorized: Invalid token`);
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
+    // Log authentication result
+    console.log(`Uninstall Package - Auth result: authenticated=${authResult.authenticated}, publicMode=${authResult.publicMode}`);
 
     // Get package ID from params
     const { id } = params;
@@ -40,10 +31,7 @@ export async function POST(
 
     if (!packageData) {
       console.log(`Package not found in database: ${id}`);
-      return NextResponse.json(
-        { error: 'Package not found' },
-        { status: 404 }
-      );
+      return createErrorResponse('Package not found', null, 404);
     }
 
     console.log(`Package found: ${packageData.name}, isInstalled=${packageData.isInstalled}`);
@@ -94,20 +82,14 @@ export async function POST(
 
     console.log(`Database updated, new isInstalled value: ${updatedPackage.isInstalled}`);
 
-    // Add cache prevention headers
-    const headers = new Headers();
-    headers.append('Cache-Control', 'no-cache, no-store, must-revalidate');
-    headers.append('Pragma', 'no-cache');
-    headers.append('Expires', '0');
-
-    return NextResponse.json({
+    return createApiResponse({
       success: true,
       message: `Package ${packageData.name} uninstalled successfully`,
       packageData: {
         id,
         isInstalled: false // Send this for client-side state updates
       }
-    }, { headers });
+    });
   } catch (error) {
     console.error(`Error uninstalling package ${params.id}:`, error);
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -135,13 +117,7 @@ export async function POST(
       }
     }
 
-    return NextResponse.json(
-      {
-        error: 'Failed to uninstall package',
-        details: errorMessage
-      },
-      { status: 500 }
-    );
+    return createErrorResponse('Failed to uninstall package', errorMessage);
   }
 }
 

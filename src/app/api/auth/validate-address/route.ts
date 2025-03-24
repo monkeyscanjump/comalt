@@ -1,7 +1,6 @@
+export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { isAddressAllowed, isPublicMode } from '@/lib/whitelist-server';
-
-export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
   try {
