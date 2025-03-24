@@ -78,6 +78,9 @@ Comalt Download Manager is a Next.js application that provides a secure interfac
 The application requires several environment variables to be configured:
 
 ```properties
+# Database
+DATABASE_URL="file:./dev.db"
+
 # JWT
 # Generate a secure secret with:
 # Windows: powershell -c "[Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))"
