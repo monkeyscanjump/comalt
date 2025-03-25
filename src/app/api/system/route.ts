@@ -12,7 +12,8 @@ import type {
   SystemDisk,
   SystemGraphics,
   SystemNetworkInterface,
-  SystemCpu
+  SystemCpu,
+  DockerInfo  // Import DockerInfo type
 } from '@/types/systemInfo';
 
 // Import specific modules from systeminformation
@@ -32,6 +33,70 @@ const CACHE_MAX_AGE = 0; // Disable caching completely - was 5 seconds
 
 // Valid component keys
 const VALID_COMPONENTS: SystemInfoComponentKey[] = ['memory', 'storage', 'network', 'processes'];
+
+/**
+ * Check Docker installation status
+ */
+async function checkDockerStatus(): Promise<DockerInfo> {
+  console.log('[System API] Checking Docker installation status');
+
+  try {
+    // Use the existing Docker status API directly
+    // This leverages the robust Docker detection already implemented
+    console.log('[System API] Calling internal Docker status API');
+
+    // Create a server-side fetch to the Docker status API
+    const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
+    const host = process.env.HOSTNAME || 'localhost';
+    const port = process.env.PORT || '3000';
+    const baseUrl = `${protocol}://${host}:${port}`;
+
+    // Make the request to the internal Docker status API
+    const dockerStatusUrl = `${baseUrl}/api/docker/status`;
+    console.log(`[System API] Fetching from internal API: ${dockerStatusUrl}`);
+
+    // Use native fetch in a server component
+    const response = await fetch(dockerStatusUrl, {
+      headers: {
+        'Accept': 'application/json',
+        'X-Internal-Request': 'true' // Add a header to identify internal requests
+      },
+      next: { revalidate: 0 } // Ensure fresh data
+    });
+
+    if (!response.ok) {
+      console.error(`[System API] Docker status API responded with status: ${response.status}`);
+      return { installed: false };
+    }
+
+    const data = await response.json();
+    console.log('[System API] Docker status API response:', data);
+
+    return {
+      installed: data.installed || false,
+      version: data.version || undefined,
+      path: data.path || undefined
+    };
+  } catch (error) {
+    console.error('[System API] Error fetching Docker status:', error);
+
+    // Fallback implementation if internal API call fails
+    try {
+      // Try direct command for Docker version
+      const { stdout } = await execAsync('docker --version', { timeout: 3000 });
+      const versionMatch = stdout.match(/Docker version ([0-9.]+)/);
+      const version = versionMatch ? versionMatch[1] : 'Unknown';
+
+      return {
+        installed: true,
+        version
+      };
+    } catch (fallbackError) {
+      console.log('[System API] Fallback Docker check also failed:', fallbackError);
+      return { installed: false };
+    }
+  }
+}
 
 /**
  * GET handler for system information API
@@ -147,23 +212,27 @@ export async function GET(request: NextRequest) {
     // If no specific component requested, fetch all data
     console.log('[System API] Fetching complete system information');
     try {
+      // Run all data fetching promises in parallel
       const [
         cpuInfo,
         memoryInfo,
         graphicsInfo,
         diskLayoutInfo,
         networkInterfacesInfo,
-        osInfoData
+        osInfoData,
+        dockerInfo  // Add Docker info check
       ] = await Promise.all([
         cpu(),
         mem(),
         graphics(),
         diskLayout(),
         networkInterfaces(),
-        osInfo()
+        osInfo(),
+        checkDockerStatus()  // Get Docker status
       ]);
 
       console.log('[System API] All system data collected');
+      console.log('[System API] Docker status:', dockerInfo.installed ? 'Installed' : 'Not installed');
 
       // Format CPU cache values from numbers to strings with units
       const formattedCache: SystemCpu['cache'] = {
@@ -199,7 +268,8 @@ export async function GET(request: NextRequest) {
           hostname: osInfoData.hostname
         },
         uptime: formatUptime(os.uptime()),
-        pm2Processes: await getPm2Processes()
+        pm2Processes: await getPm2Processes(),
+        docker: dockerInfo  // Add Docker info to the response
       };
 
       console.log('[System API] System info prepared successfully');

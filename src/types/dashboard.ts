@@ -74,5 +74,6 @@ export const SECTION_CONFIG: SectionDisplayConfig[] = [
   { id: 'gpu', label: 'Graphics', canRefresh: false, isFullWidth: true },
   { id: 'storage', label: 'Storage', canRefresh: true, isFullWidth: true },
   { id: 'network', label: 'Network', canRefresh: true, isFullWidth: true },
-  { id: 'processes', label: 'Processes', canRefresh: true, isFullWidth: true }
+  { id: 'processes', label: 'Processes', canRefresh: true, isFullWidth: true },
+  { id: 'docker', label: 'Docker', canRefresh: true, isFullWidth: true }
 ];

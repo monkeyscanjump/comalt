@@ -12,7 +12,7 @@ import {
 } from '@/config/whitelist';
 import type { InjectedAccountWithMeta } from '@polkadot/extension-inject/types';
 import type { User } from '@/types/user';
-import { getPublicEnv } from '@/utils/env';
+import { useEnv } from '@/hooks/useEnv';
 
 /**
  * Generates a unique user ID from a wallet address
@@ -66,6 +66,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   // Calculate derived states
   const isWalletConnected = !!selectedAccount || !!walletAddress;
+
+  const appName = useEnv('APP_NAME', 'comAlt');
 
   /**
    * Logout and clear all authentication state
@@ -329,7 +331,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setWasSignatureRejected(false);
 
       // Create a unique message
-      const message = `Sign this message to authenticate with ${getPublicEnv('APP_NAME', 'comAlt')}: ${Date.now()}`;
+      const message = `Sign this message to authenticate with ${appName}: ${Date.now()}`;
 
       // Get signature - this might throw if rejected
       const signature = await signMessage(message);
@@ -380,7 +382,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     signMessage,
     setToken,
     setIsAuthenticated,
-    setUser
+    setUser,
+    appName
   ]);
 
   /**

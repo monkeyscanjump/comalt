@@ -14,7 +14,15 @@ export interface SystemInfo {
   network?: SystemNetworkInterface[];
   graphics?: SystemGraphics[];
   pm2Processes?: SystemProcess[];
+  docker?: DockerInfo;
   uptime?: string;
+}
+
+// Docker information
+export interface DockerInfo {
+  installed: boolean;
+  version?: string;
+  path?: string;
 }
 
 // Memory information

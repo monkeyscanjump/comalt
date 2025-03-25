@@ -9,12 +9,11 @@
 
 /* Main content area grows to fill available space */
 .main {
-  flex: 1 1 auto; /* Grows and shrinks, with auto base size */
+  flex: 1 1 auto;
   width: 100%;
   padding: var(--space-lg);
   display: flex;
   flex-direction: column;
-  max-width: 1200px;
   margin: 0 auto;
 }
 

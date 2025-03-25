@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 const COLLAPSE_STATE_KEY = 'dashboard_collapse_state';
 
 // Section IDs for collapse state
-export type SectionId = 'memory' | 'os' | 'processes' | 'cpu' | 'gpu' | 'storage' | 'network';
+export type SectionId = 'memory' | 'os' | 'processes' | 'cpu' | 'gpu' | 'storage' | 'network' | 'docker';
 
 type CollapsedSections = Record<SectionId, boolean>;
 
@@ -22,6 +22,7 @@ export function useCollapsibleSections(options: UseCollapsibleSectionsOptions = 
     gpu: false,
     storage: false,
     network: false,
+    docker: false,
     ...options.defaultState
   };
 

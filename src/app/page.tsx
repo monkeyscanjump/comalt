@@ -330,12 +330,16 @@ export default function Dashboard() {
             />
           )}
 
-          {/* Docker Information - As a dedicated component */}
-          <DockerSection
-            osInfo={displayData?.os}
-            token={token ?? undefined}
-            displayMode={displayMode}
-          />
+          {/* Docker section */}
+          {visibleSections.docker && (
+            <DockerSection
+              osInfo={displayData?.os}
+              token={token ?? undefined}
+              displayMode={displayMode}
+              isCollapsed={collapsedSections.docker}
+              onToggleCollapse={() => toggleSectionCollapse('docker')}
+            />
+          )}
         </div>
       </div>
     </PageWrapper>

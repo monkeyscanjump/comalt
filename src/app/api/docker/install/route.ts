@@ -6,6 +6,8 @@ import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
 
+export const dynamic = 'force-dynamic';
+
 const execAsync = promisify(exec);
 
 export async function POST(request: NextRequest) {

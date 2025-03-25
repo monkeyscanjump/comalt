@@ -5,7 +5,13 @@ const nextConfig = {
   reactStrictMode: true,
   env: {
     APP_ENV: process.env.NODE_ENV,
+    NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME,
+    NEXT_PUBLIC_APP_VERSION: process.env.NEXT_PUBLIC_APP_VERSION,
     POLKADOT_API_URL: process.env.POLKADOT_API_URL || 'https://rpc.polkadot.io',
+  },
+  publicRuntimeConfig: {
+    NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME,
+    NEXT_PUBLIC_APP_VERSION: process.env.NEXT_PUBLIC_APP_VERSION
   },
   swcMinify: true,
   // Enable styled-components for all environments

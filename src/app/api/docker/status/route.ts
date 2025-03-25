@@ -3,9 +3,11 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import { authenticateRequest, createApiResponse, createErrorResponse } from '@/utils/apiAuth';
 import path from 'path';
-import * as fsPromises from 'fs/promises';  // Promise-based fs methods
-import fs from 'fs';  // Regular fs module for synchronous methods
+import * as fsPromises from 'fs/promises';
+import fs from 'fs';
 import os from 'os';
+
+export const dynamic = 'force-dynamic';
 
 const execAsync = promisify(exec);
 

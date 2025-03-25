@@ -15,13 +15,17 @@ interface DockerSectionProps {
   token?: string;
   isCollapsible?: boolean;
   displayMode?: DisplayMode;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 export const DockerSection: React.FC<DockerSectionProps> = ({
   osInfo,
   token,
   isCollapsible = true,
-  displayMode = 'default'
+  displayMode = 'default',
+  isCollapsed: externalIsCollapsed,
+  onToggleCollapse: externalOnToggleCollapse
 }) => {
   const [dockerInstalled, setDockerInstalled] = useState<boolean | null>(null);
   const [dockerVersion, setDockerVersion] = useState<string | null>(null);
@@ -29,10 +33,52 @@ export const DockerSection: React.FC<DockerSectionProps> = ({
   const [installLog, setInstallLog] = useState<string>('');
   const [dockerError, setDockerError] = useState<string | null>(null);
   const [isDockerLoading, setIsDockerLoading] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  // Only use internal state if external control is not provided
+  const [internalIsCollapsed, setInternalIsCollapsed] = useState(false);
+
+  // Use external state if provided, otherwise use internal state
+  const isCollapsed = externalIsCollapsed !== undefined ? externalIsCollapsed : internalIsCollapsed;
+
+  // Combine external and internal toggle handlers
+  const handleToggleCollapse = () => {
+    if (externalOnToggleCollapse) {
+      externalOnToggleCollapse();
+    } else {
+      setInternalIsCollapsed(!internalIsCollapsed);
+    }
+  };
 
   // Track if Docker data has been loaded
   const dockerDataLoadedRef = useRef(false);
+
+  // Determine if the platform is Linux
+  const isLinux = osInfo?.platform === 'linux';
+
+  // Determine if the platform is macOS
+  const isMacOS = osInfo?.platform === 'darwin';
+
+  // Determine if the platform is Windows
+  const isWindows = osInfo?.platform === 'win32' ||
+                    osInfo?.platform === 'Windows_NT' ||
+                    (osInfo?.platform && osInfo.platform.toLowerCase().includes('win'));
+
+  // Platform is only supported for automated installation if it's Linux
+  const isPlatformSupported = isLinux;
+
+  // Log platform information when it changes
+  useEffect(() => {
+    if (osInfo) {
+      console.log('Docker section platform info:', {
+        platform: osInfo.platform,
+        distro: osInfo.distro,
+        isLinux,
+        isMacOS,
+        isWindows,
+        isPlatformSupported
+      });
+    }
+  }, [osInfo, isLinux, isMacOS, isWindows, isPlatformSupported]);
 
   // Check if Docker is installed
   const checkDockerInstallation = useCallback(async () => {
@@ -48,7 +94,6 @@ export const DockerSection: React.FC<DockerSectionProps> = ({
       try {
         const response = await fetch('/api/docker/status', {
           headers,
-          // Add timeout to avoid hanging requests
           signal: AbortSignal.timeout(5000)
         });
 
@@ -61,10 +106,7 @@ export const DockerSection: React.FC<DockerSectionProps> = ({
         setDockerVersion(data.installed ? data.version : null);
         setInstallationStatus(data.installed ? 'completed' : 'not_started');
       } catch (fetchErr) {
-        // Handle network errors differently
         console.error('Docker check network error:', fetchErr);
-
-        // Don't fail the whole page for Docker check issues
         setDockerInstalled(false);
         setDockerVersion(null);
         setInstallationStatus('not_started');
@@ -100,6 +142,12 @@ export const DockerSection: React.FC<DockerSectionProps> = ({
 
   // Start Docker installation
   const installDocker = async () => {
+    // Only allow installation on Linux
+    if (!isLinux) {
+      setDockerError("Automated Docker installation is only supported on Linux systems");
+      return;
+    }
+
     try {
       setInstallationStatus('installing');
       setInstallLog('Starting Docker installation...\n');
@@ -183,11 +231,11 @@ export const DockerSection: React.FC<DockerSectionProps> = ({
   const getDockerInstructions = () => {
     if (!osInfo) return null;
 
-    if (osInfo.platform === 'win32') {
+    if (isWindows) {
       return (
         <div>
           <h3>Windows Installation</h3>
-          <p>Docker Desktop for Windows will be installed, which includes everything you need:</p>
+          <p>Download Docker Desktop for Windows from the official website:</p>
           <ul>
             <li>Docker Engine</li>
             <li>Docker CLI</li>
@@ -195,13 +243,14 @@ export const DockerSection: React.FC<DockerSectionProps> = ({
             <li>Kubernetes</li>
           </ul>
           <p><strong>Requirements:</strong> Windows 10/11 64-bit: Pro, Enterprise, or Education</p>
+          <p><strong>Note:</strong> Automated installation is not supported on Windows. Please use the manual installation link below.</p>
         </div>
       );
-    } else if (osInfo.platform === 'darwin') {
+    } else if (isMacOS) {
       return (
         <div>
           <h3>macOS Installation</h3>
-          <p>Docker Desktop for Mac will be installed, which includes:</p>
+          <p>Download Docker Desktop for Mac from the official website:</p>
           <ul>
             <li>Docker Engine</li>
             <li>Docker CLI</li>
@@ -209,9 +258,10 @@ export const DockerSection: React.FC<DockerSectionProps> = ({
             <li>Kubernetes</li>
           </ul>
           <p><strong>Requirements:</strong> macOS 10.14 or newer</p>
+          <p><strong>Note:</strong> Automated installation is not supported on macOS. Please use the manual installation link below.</p>
         </div>
       );
-    } else if (osInfo.platform === 'linux') {
+    } else if (isLinux) {
       return (
         <div>
           <h3>Linux Installation ({osInfo.distro})</h3>
@@ -222,6 +272,7 @@ export const DockerSection: React.FC<DockerSectionProps> = ({
             <li>Docker CLI</li>
             <li>Docker Compose plugin</li>
           </ul>
+          <p>You can proceed with the automated installation below.</p>
         </div>
       );
     }
@@ -244,7 +295,7 @@ export const DockerSection: React.FC<DockerSectionProps> = ({
         isFullWidth={true}
         isCollapsible={isCollapsible}
         isCollapsed={isCollapsed}
-        onToggleCollapse={() => setIsCollapsed(!isCollapsed)}
+        onToggleCollapse={handleToggleCollapse}
         canRefresh={true}
         isRefreshing={isDockerLoading}
         onRefresh={handleDockerRefresh}
@@ -265,7 +316,7 @@ export const DockerSection: React.FC<DockerSectionProps> = ({
       isFullWidth={true}
       isCollapsible={isCollapsible}
       isCollapsed={isCollapsed}
-      onToggleCollapse={() => setIsCollapsed(!isCollapsed)}
+      onToggleCollapse={handleToggleCollapse}
       canRefresh={true}
       isRefreshing={isDockerLoading}
       onRefresh={handleDockerRefresh}
@@ -365,14 +416,20 @@ export const DockerSection: React.FC<DockerSectionProps> = ({
                 </div>
 
                 <div className={dockerStyles.actionContainer}>
-                  <button
-                    className={styles.buttonPrimary}
-                    onClick={installDocker}
-                    disabled={!osInfo || installationStatus === 'checking'}
-                  >
-                    <FiDownload className={styles.buttonIconLeft} />
-                    Install Docker
-                  </button>
+                  {isLinux ? (
+                    <button
+                      className={styles.buttonPrimary}
+                      onClick={installDocker}
+                      disabled={!osInfo || installationStatus === 'checking'}
+                    >
+                      <FiDownload className={styles.buttonIconLeft} />
+                      Install Docker
+                    </button>
+                  ) : (
+                    <div className={`${styles.badge} ${styles.badgeWarning}`}>
+                      <FiAlertTriangle /> Automated installation only available on Linux
+                    </div>
+                  )}
 
                   <a
                     href="https://docs.docker.com/get-docker/"

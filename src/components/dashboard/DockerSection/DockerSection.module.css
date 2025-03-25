@@ -1,8 +1,4 @@
 /* Docker section styles */
-.dockerSection {
-  margin-top: var(--space-xl);
-}
-
 .sectionContent {
   display: flex;
   flex-direction: column;

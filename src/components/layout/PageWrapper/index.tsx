@@ -4,7 +4,7 @@ import React, { useEffect, useRef } from 'react';
 import { useNavigation } from '@/contexts/navigation/NavigationContext';
 import { IconType } from 'react-icons';
 import { usePathname } from 'next/navigation';
-import { getPublicEnv } from '@/utils/env';
+import { useEnv } from '@/hooks/useEnv';
 
 interface PageWrapperProps {
   title: string;
@@ -23,14 +23,15 @@ export function PageWrapper({
 }: PageWrapperProps) {
   const { updateRouteInfo } = useNavigation();
   const pathname = usePathname() || '/';
+  const appName = useEnv('APP_NAME', 'comAlt');
 
   // Use a ref to track first render
   const isFirstRender = useRef(true);
 
   // This effect should only run once per mount
   useEffect(() => {
-    // Only update route info on first render
-    if (isFirstRender.current) {
+    // Check if we're on the client side
+    if (typeof window !== 'undefined' && isFirstRender.current) {
       updateRouteInfo({
         path: pathname,
         title,
@@ -39,13 +40,12 @@ export function PageWrapper({
         order
       });
 
-      // Update document title
-      const appName = getPublicEnv('APP_NAME', 'comAlt');
+      // Update document title, using the value from our hook
       document.title = `${title} | ${appName}`;
 
       isFirstRender.current = false;
     }
-  }, [pathname, title, icon, showInNav, order, updateRouteInfo]);
+  }, [pathname, title, icon, showInNav, order, updateRouteInfo, appName]);
 
   return <>{children}</>;
 }

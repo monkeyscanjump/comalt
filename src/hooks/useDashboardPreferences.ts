@@ -27,7 +27,8 @@ const DEFAULT_PREFERENCES: DashboardPreferences = {
     cpu: true,
     gpu: true,
     storage: true,
-    network: true
+    network: true,
+    docker: true
   }
 };
 

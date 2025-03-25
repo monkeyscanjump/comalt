@@ -47,27 +47,12 @@ export function getEnvironmentConfig() {
  * @param defaultValue - Optional default value
  */
 export function getPublicEnv(key: string, defaultValue?: string): string {
+  // Next.js environment variable naming convention
   const fullKey = `NEXT_PUBLIC_${key}`;
 
-  // Check if we're in the browser
-  if (typeof window !== 'undefined') {
-    // Use safe type assertion instead of @ts-ignore
-    const nextData = window as any;
+  // Get value from Next.js environment (works in both server and client)
+  const envValue = process.env[fullKey];
 
-    // Try to get from Next.js runtime config
-    if (nextData.__NEXT_DATA__?.runtimeConfig?.[fullKey]) {
-      return nextData.__NEXT_DATA__.runtimeConfig[fullKey];
-    }
-
-    // Then check process.env which Next.js makes available for NEXT_PUBLIC_ vars
-    if (process.env[fullKey]) {
-      return process.env[fullKey];
-    }
-
-    // Fallback to default value
-    return defaultValue || '';
-  }
-
-  // Server-side rendering - directly access process.env
-  return process.env[fullKey] || defaultValue || '';
+  // Return environment value if it exists, otherwise fallback to default
+  return envValue || defaultValue || '';
 }

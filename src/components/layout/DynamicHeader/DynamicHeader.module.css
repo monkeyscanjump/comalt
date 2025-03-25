@@ -9,7 +9,7 @@
   align-items: center;
   flex-shrink: 0;
   z-index: var(--z-index-fixed);
-  padding: 0 var(--space-md);
+  padding: 0 var(--space-lg);
   transition: box-shadow var(--transition-fast), transform var(--transition-fast);
   position: sticky;
   top: 0;
@@ -47,7 +47,6 @@
   text-decoration: none;
   transition: all var(--transition-fast);
   height: 100%;
-  padding: 0 var(--space-sm);
 }
 
 .headerLogo:hover {

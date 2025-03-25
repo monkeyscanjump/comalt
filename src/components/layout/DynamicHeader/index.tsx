@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/auth';
 import { MainNavigation } from '@/components/layout/MainNavigation';
 import ThemeToggle from '@/components/layout/ThemeToggle';
 import styles from './DynamicHeader.module.css';
-import { getPublicEnv } from '@/utils/env';
+import { useEnv } from '@/hooks/useEnv';
 
 // Import WalletConnector with SSR disabled to prevent hydration errors
 const WalletConnector = dynamic(
@@ -19,7 +19,7 @@ export function DynamicHeader() {
   const [isClient, setIsClient] = useState(false);
   const { isPublicMode } = useAuth();
 
-  const appName = getPublicEnv('APP_NAME', 'comAlt');
+  const appName = useEnv('APP_NAME', 'comAlt');
 
   useEffect(() => {
     setIsClient(true);
