@@ -343,7 +343,6 @@
   .headerContainer {
     height: auto;
     min-height: 60px;
-    padding: var(--space-xs) var(--space-sm);
   }
 
   .header {
