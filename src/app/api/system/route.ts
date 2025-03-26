@@ -4,8 +4,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import os from 'os';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { getAuthToken, errorResponse, validateAuthToken, isTokenExpired, processApiError } from '@/utils/api';
-import { isPublicMode } from '@/lib/whitelist-server';
+import { withApiRoute } from '@/middlewares/withApiRoute';
+// Remove ApiError import and use standard Error with properties
 import type {
   SystemInfo,
   SystemInfoComponentKey,
@@ -27,9 +27,6 @@ import {
 } from 'systeminformation';
 
 const execAsync = promisify(exec);
-
-// Max age for cache control (in seconds)
-const CACHE_MAX_AGE = 0; // Disable caching completely
 
 // Valid component keys
 const VALID_COMPONENTS: SystemInfoComponentKey[] = ['memory', 'storage', 'network', 'processes'];
@@ -94,225 +91,168 @@ async function checkDockerStatus(): Promise<DockerInfo> {
 }
 
 /**
- * GET handler for system information API
+ * Main handler for system information API
  */
-export async function GET(request: NextRequest) {
+const handleSystemRequest = async (request: NextRequest) => {
   console.log('[System API] Request received:', request.url);
   const startTime = Date.now();
 
-  try {
-    // CRITICAL: Check for known token expiration FIRST
-    if (isTokenExpired()) {
-      console.log('[System API] Token already known to be expired, rejecting request immediately');
-      return errorResponse('Token expired', 'TOKEN_EXPIRED', 401);
-    }
+  // Get the component parameter
+  const url = new URL(request.url);
+  const componentParam = url.searchParams.get('component');
 
-    // Check if app is in public mode
-    const publicMode = isPublicMode();
-    console.log('[System API] Public mode:', publicMode);
+  console.log('[System API] Component parameter:', componentParam || 'none');
 
-    // Skip authentication checks if in public mode
-    if (!publicMode) {
-      // Get token from Authorization header
-      const token = getAuthToken(request);
-
-      if (!token) {
-        console.log('[System API] No token provided');
-        return errorResponse('Authentication required', 'AUTH_REQUIRED', 401);
-      }
-
-      // Wrap token validation in try/catch to handle JWT errors
-      let tokenResult;
-      try {
-        tokenResult = await validateAuthToken(token);
-      } catch (tokenError) {
-        // Process error to detect token expiration
-        processApiError(tokenError);
-        console.error('[System API] Token validation failed:', tokenError);
-
-        return errorResponse(
-          'Authentication failed',
-          'AUTH_FAILED',
-          401,
-          { message: tokenError instanceof Error ? tokenError.message : String(tokenError) }
-        );
-      }
-
-      if (!tokenResult.valid) {
-        console.log('[System API] Invalid token:', tokenResult.error);
-        return errorResponse(
-          tokenResult.error || 'Invalid token',
-          tokenResult.errorCode || 'INVALID_TOKEN',
-          401
-        );
-      }
-
-      // Admin check
-      if (tokenResult.isAdmin !== true) {
-        console.log('[System API] User not admin');
-        return errorResponse('Admin privileges required', 'ADMIN_REQUIRED', 403);
-      }
-
-      console.log('[System API] Authentication successful');
-    }
-
-    // Get the component parameter
-    const url = new URL(request.url);
-    const componentParam = url.searchParams.get('component');
-
-    console.log('[System API] Component parameter:', componentParam || 'none');
-
-    // Validate component parameter if provided
-    if (componentParam && !VALID_COMPONENTS.includes(componentParam as SystemInfoComponentKey)) {
-      console.log('[System API] Invalid component:', componentParam);
-      return errorResponse(
-        `Invalid component specified. Valid components are: ${VALID_COMPONENTS.join(', ')}`,
-        'INVALID_COMPONENT',
-        400
-      );
-    }
-
-    const component = componentParam as SystemInfoComponentKey | null;
-
-    // Initialize response data
-    const responseData: Partial<SystemInfo> = {};
-
-    // Check if we're requesting a specific component
-    if (component) {
-      console.log(`[System API] Fetching specific component: ${component}`);
-      try {
-        switch (component) {
-          case 'memory': {
-            console.log('[System API] Retrieving memory info');
-            const memoryInfo = await mem();
-            responseData.memory = formatMemory(memoryInfo);
-            break;
-          }
-
-          case 'storage': {
-            console.log('[System API] Retrieving disk info');
-            const diskLayoutInfo = await diskLayout();
-            responseData.disks = formatDisks(diskLayoutInfo);
-            break;
-          }
-
-          case 'network': {
-            console.log('[System API] Retrieving network info');
-            const networkInterfacesInfo = await networkInterfaces();
-            responseData.network = formatNetwork(networkInterfacesInfo);
-            break;
-          }
-
-          case 'processes': {
-            console.log('[System API] Retrieving PM2 processes');
-            responseData.pm2Processes = await getPm2Processes();
-            break;
-          }
-        }
-      } catch (componentError) {
-        console.error(`[System API] Error fetching ${component} info:`, componentError);
-        return errorResponse(
-          `Failed to retrieve ${component} information`,
-          `${component.toUpperCase()}_INFO_ERROR`,
-          500,
-          { message: componentError instanceof Error ? componentError.message : String(componentError) }
-        );
-      }
-
-      console.log(`[System API] Component ${component} retrieved successfully`);
-      return createResponse(responseData);
-    }
-
-    // If no specific component requested, fetch all data
-    console.log('[System API] Fetching complete system information');
-    try {
-      // Run all data fetching promises in parallel
-      const [
-        cpuInfo,
-        memoryInfo,
-        graphicsInfo,
-        diskLayoutInfo,
-        networkInterfacesInfo,
-        osInfoData,
-        dockerInfo
-      ] = await Promise.all([
-        cpu(),
-        mem(),
-        graphics(),
-        diskLayout(),
-        networkInterfaces(),
-        osInfo(),
-        checkDockerStatus()
-      ]);
-
-      console.log('[System API] All system data collected');
-      console.log('[System API] Docker status:', dockerInfo.installed ? 'Installed' : 'Not installed');
-
-      // Format CPU cache values
-      const formattedCache: SystemCpu['cache'] = {
-        l1d: cpuInfo.cache?.l1d ? formatCacheSize(cpuInfo.cache.l1d) : undefined,
-        l1i: cpuInfo.cache?.l1i ? formatCacheSize(cpuInfo.cache.l1i) : undefined,
-        l2: cpuInfo.cache?.l2 ? formatCacheSize(cpuInfo.cache.l2) : undefined,
-        l3: cpuInfo.cache?.l3 ? formatCacheSize(cpuInfo.cache.l3) : undefined,
-      };
-
-      // Create the complete system info object
-      const systemInfo: SystemInfo = {
-        cpu: {
-          manufacturer: cpuInfo.manufacturer,
-          brand: cpuInfo.brand,
-          vendor: cpuInfo.vendor || 'N/A',
-          family: cpuInfo.family || 'N/A',
-          model: cpuInfo.model || 'N/A',
-          cores: cpuInfo.cores,
-          physicalCores: cpuInfo.physicalCores,
-          speed: `${cpuInfo.speed} GHz`,
-          cache: formattedCache
-        },
-        memory: formatMemory(memoryInfo),
-        graphics: formatGraphics(graphicsInfo),
-        disks: formatDisks(diskLayoutInfo),
-        network: formatNetwork(networkInterfacesInfo),
-        os: {
-          platform: osInfoData.platform,
-          distro: osInfoData.distro,
-          release: osInfoData.release,
-          kernel: osInfoData.kernel,
-          arch: osInfoData.arch,
-          hostname: osInfoData.hostname
-        },
-        uptime: formatUptime(os.uptime()),
-        pm2Processes: await getPm2Processes(),
-        docker: dockerInfo
-      };
-
-      console.log('[System API] System info prepared successfully');
-      const elapsedTime = Date.now() - startTime;
-      console.log(`[System API] Request completed in ${elapsedTime}ms`);
-
-      return createResponse(systemInfo);
-    } catch (error) {
-      console.error('[System API] Error fetching complete system information:', error);
-      return errorResponse(
-        'Failed to retrieve system information',
-        'SYSTEM_INFO_ERROR',
-        500,
-        { message: error instanceof Error ? error.message : String(error) }
-      );
-    }
-  } catch (unexpectedError) {
-    console.error('[System API] Unexpected error in system API route:', unexpectedError);
-    // Process error to detect token expiration
-    processApiError(unexpectedError);
-
-    return errorResponse(
-      'An unexpected error occurred',
-      'UNEXPECTED_ERROR',
-      500,
-      { message: unexpectedError instanceof Error ? unexpectedError.message : String(unexpectedError) }
-    );
+  // Validate component parameter if provided
+  if (componentParam && !VALID_COMPONENTS.includes(componentParam as SystemInfoComponentKey)) {
+    console.log('[System API] Invalid component:', componentParam);
+    // Use standard Error with properties instead of ApiError
+    const error = new Error(`Invalid component specified. Valid components are: ${VALID_COMPONENTS.join(', ')}`);
+    (error as any).code = 'INVALID_COMPONENT';
+    (error as any).status = 400;
+    throw error;
   }
-}
+
+  const component = componentParam as SystemInfoComponentKey | null;
+
+  // Initialize response data
+  const responseData: Partial<SystemInfo> = {};
+
+  // Check if we're requesting a specific component
+  if (component) {
+    console.log(`[System API] Fetching specific component: ${component}`);
+    try {
+      switch (component) {
+        case 'memory': {
+          console.log('[System API] Retrieving memory info');
+          const memoryInfo = await mem();
+          responseData.memory = formatMemory(memoryInfo);
+          break;
+        }
+
+        case 'storage': {
+          console.log('[System API] Retrieving disk info');
+          const diskLayoutInfo = await diskLayout();
+          responseData.disks = formatDisks(diskLayoutInfo);
+          break;
+        }
+
+        case 'network': {
+          console.log('[System API] Retrieving network info');
+          const networkInterfacesInfo = await networkInterfaces();
+          responseData.network = formatNetwork(networkInterfacesInfo);
+          break;
+        }
+
+        case 'processes': {
+          console.log('[System API] Retrieving PM2 processes');
+          responseData.pm2Processes = await getPm2Processes();
+          break;
+        }
+      }
+    } catch (componentError) {
+      console.error(`[System API] Error fetching ${component} info:`, componentError);
+      // Use standard Error with properties instead of ApiError
+      const error = new Error(`Failed to retrieve ${component} information`);
+      (error as any).code = `${component.toUpperCase()}_INFO_ERROR`;
+      (error as any).status = 500;
+      (error as any).details = {
+        message: componentError instanceof Error ? componentError.message : String(componentError)
+      };
+      throw error;
+    }
+
+    console.log(`[System API] Component ${component} retrieved successfully`);
+    return createResponse(responseData);
+  }
+
+  // If no specific component requested, fetch all data
+  console.log('[System API] Fetching complete system information');
+  try {
+    // Run all data fetching promises in parallel
+    const [
+      cpuInfo,
+      memoryInfo,
+      graphicsInfo,
+      diskLayoutInfo,
+      networkInterfacesInfo,
+      osInfoData,
+      dockerInfo
+    ] = await Promise.all([
+      cpu(),
+      mem(),
+      graphics(),
+      diskLayout(),
+      networkInterfaces(),
+      osInfo(),
+      checkDockerStatus()
+    ]);
+
+    console.log('[System API] All system data collected');
+    console.log('[System API] Docker status:', dockerInfo.installed ? 'Installed' : 'Not installed');
+
+    // Format CPU cache values
+    const formattedCache: SystemCpu['cache'] = {
+      l1d: cpuInfo.cache?.l1d ? formatCacheSize(cpuInfo.cache.l1d) : undefined,
+      l1i: cpuInfo.cache?.l1i ? formatCacheSize(cpuInfo.cache.l1i) : undefined,
+      l2: cpuInfo.cache?.l2 ? formatCacheSize(cpuInfo.cache.l2) : undefined,
+      l3: cpuInfo.cache?.l3 ? formatCacheSize(cpuInfo.cache.l3) : undefined,
+    };
+
+    // Create the complete system info object
+    const systemInfo: SystemInfo = {
+      cpu: {
+        manufacturer: cpuInfo.manufacturer,
+        brand: cpuInfo.brand,
+        vendor: cpuInfo.vendor || 'N/A',
+        family: cpuInfo.family || 'N/A',
+        model: cpuInfo.model || 'N/A',
+        cores: cpuInfo.cores,
+        physicalCores: cpuInfo.physicalCores,
+        speed: `${cpuInfo.speed} GHz`,
+        cache: formattedCache
+      },
+      memory: formatMemory(memoryInfo),
+      graphics: formatGraphics(graphicsInfo),
+      disks: formatDisks(diskLayoutInfo),
+      network: formatNetwork(networkInterfacesInfo),
+      os: {
+        platform: osInfoData.platform,
+        distro: osInfoData.distro,
+        release: osInfoData.release,
+        kernel: osInfoData.kernel,
+        arch: osInfoData.arch,
+        hostname: osInfoData.hostname
+      },
+      uptime: formatUptime(os.uptime()),
+      pm2Processes: await getPm2Processes(),
+      docker: dockerInfo
+    };
+
+    console.log('[System API] System info prepared successfully');
+    const elapsedTime = Date.now() - startTime;
+    console.log(`[System API] Request completed in ${elapsedTime}ms`);
+
+    return createResponse(systemInfo);
+  } catch (error) {
+    console.error('[System API] Error fetching complete system information:', error);
+    // Use standard Error with properties instead of ApiError
+    const apiError = new Error('Failed to retrieve system information');
+    (apiError as any).code = 'SYSTEM_INFO_ERROR';
+    (apiError as any).status = 500;
+    (apiError as any).details = {
+      message: error instanceof Error ? error.message : String(error)
+    };
+    throw apiError;
+  }
+};
+
+// Export the GET handler with authentication middleware
+// Replace createRouteHandler with withApiRoute
+export const GET = withApiRoute(handleSystemRequest, {
+  requireAuth: true,
+  requireAdmin: true
+});
 
 /**
  * Helper function to create response with appropriate headers

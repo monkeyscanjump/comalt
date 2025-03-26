@@ -1,13 +1,12 @@
 export const dynamic = 'force-dynamic';
 
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import packages from '@/config/packages.json';
 import { execSync } from 'child_process';
 import fs from 'fs';
 import { getCommandsAsArray } from '@/types/packages';
-import { authenticateRequest, createApiResponse, createErrorResponse } from '@/utils/apiAuth';
-import { isTokenExpired, processApiError } from '@/utils/api';
+import { withApiRoute } from '@/middlewares/withApiRoute';
 
 // Helper function to safely execute commands
 function safeExecSync(command: string, options: any = {}): string {
@@ -33,35 +32,30 @@ function safeExecSync(command: string, options: any = {}): string {
   }
 }
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  console.log(`Starting install process for package: ${params.id}`);
-
+/**
+ * Handle package installation
+ */
+const handlePackageInstall = async (request: NextRequest, context: { params?: any }) => {
   try {
-    // CRITICAL: Check token expiration before authentication
-    if (isTokenExpired()) {
-      console.log('[Package Install] Blocking request - token already known to be expired');
-      return createErrorResponse('Token expired', 'TOKEN_EXPIRED', 401);
+    // Make sure params exist
+    if (!context.params?.id) {
+      const error = new Error('Missing package ID');
+      (error as any).code = 'MISSING_PACKAGE_ID';
+      (error as any).status = 400;
+      throw error;
     }
 
-    // Use the authentication utility
-    const authResult = await authenticateRequest(request);
-    if (authResult.error) return authResult.error;
-
-    // Log authentication result
-    console.log(`Install Package - Auth result: authenticated=${authResult.authenticated}, publicMode=${authResult.publicMode}`);
-
-    // Get package ID from params
-    const { id } = params;
-    console.log(`Looking up package: ${id}`);
+    const id = context.params.id;
+    console.log(`Starting install process for package: ${id}`);
 
     // Find package in definitions
     const packageDef = packages.packages.find((p: any) => p.id === id);
     if (!packageDef) {
       console.log(`Package definition not found: ${id}`);
-      return createErrorResponse('Package not found', 'PACKAGE_NOT_FOUND', 404);
+      const error = new Error('Package not found');
+      (error as any).code = 'PACKAGE_NOT_FOUND';
+      (error as any).status = 404;
+      throw error;
     }
 
     console.log(`Found package definition: ${packageDef.name}`);
@@ -127,39 +121,34 @@ export async function POST(
     // Create or update package in database
     const now = new Date();
     console.log(`Updating database`);
-    try {
-      const updatedPackage = await prisma.appPackage.upsert({
-        where: { id },
-        update: {
-          isInstalled: true,
-          installedVersion: version,
-          installPath: normalizedPath,
-          installedAt: now,
-          lastCheckedAt: now,
-          lastError: null
-        },
-        create: {
-          id,
-          name: packageDef.name,
-          description: packageDef.description || '',
-          githubUrl: packageDef.githubUrl,
-          installCommands: Array.isArray(packageDef.installCommands)
-            ? JSON.stringify(packageDef.installCommands)
-            : packageDef.installCommands,
-          isInstalled: true,
-          installedVersion: version,
-          installPath: normalizedPath,
-          installedAt: now,
-          lastCheckedAt: now
-        }
-      });
-      console.log(`Database updated, isInstalled=${updatedPackage.isInstalled}`);
-    } catch (dbError) {
-      console.error("Database error during package upsert:", dbError);
-      throw new Error(`Database error: ${dbError instanceof Error ? dbError.message : String(dbError)}`);
-    }
+    const updatedPackage = await prisma.appPackage.upsert({
+      where: { id },
+      update: {
+        isInstalled: true,
+        installedVersion: version,
+        installPath: normalizedPath,
+        installedAt: now,
+        lastCheckedAt: now,
+        lastError: null
+      },
+      create: {
+        id,
+        name: packageDef.name,
+        description: packageDef.description || '',
+        githubUrl: packageDef.githubUrl,
+        installCommands: Array.isArray(packageDef.installCommands)
+          ? JSON.stringify(packageDef.installCommands)
+          : packageDef.installCommands,
+        isInstalled: true,
+        installedVersion: version,
+        installPath: normalizedPath,
+        installedAt: now,
+        lastCheckedAt: now
+      }
+    });
+    console.log(`Database updated, isInstalled=${updatedPackage.isInstalled}`);
 
-    return createApiResponse({
+    return NextResponse.json({
       success: true,
       message: `Package ${packageDef.name} installed successfully`,
       installedVersion: version,
@@ -170,24 +159,22 @@ export async function POST(
       }
     });
   } catch (error) {
-    console.error(`Error installing package ${params.id}:`, error);
+    // Add error handling to record failures in the database
+    console.error(`Error installing package ${context.params?.id}:`, error);
     const errorMessage = error instanceof Error ? error.message : String(error);
 
-    // Process the error through the global handler to detect token expiration
-    processApiError(error);
-
     // Record error in database
-    if (params?.id) {
+    if (context.params?.id) {
       try {
         // Check if the package exists first
         const existingPackage = await prisma.appPackage.findUnique({
-          where: { id: params.id }
+          where: { id: context.params.id }
         });
 
         if (existingPackage) {
           // Update only if it exists
           await prisma.appPackage.update({
-            where: { id: params.id },
+            where: { id: context.params.id },
             data: {
               isInstalled: false, // Important: set to false when installation fails
               lastError: errorMessage,
@@ -197,11 +184,11 @@ export async function POST(
           console.log(`Updated existing package record with error status`);
         } else {
           // Create a new record if it doesn't exist
-          const packageDef = packages.packages.find((p: any) => p.id === params.id);
+          const packageDef = packages.packages.find((p: any) => p.id === context.params.id);
           await prisma.appPackage.create({
             data: {
-              id: params.id,
-              name: packageDef?.name || params.id,
+              id: context.params.id,
+              name: packageDef?.name || context.params.id,
               description: packageDef?.description || "Package installation failed",
               githubUrl: packageDef?.githubUrl || "",
               installCommands: packageDef?.installCommands
@@ -221,10 +208,13 @@ export async function POST(
       }
     }
 
-    return createErrorResponse(
-      'Failed to install package',
-      'PACKAGE_INSTALL_ERROR',
-      500,
-      errorMessage);
+    // Re-throw the error so withApiRoute can handle it
+    throw error;
   }
-}
+};
+
+// Export the handler with the withApiRoute wrapper
+export const POST = withApiRoute(handlePackageInstall, {
+  requireAuth: true,
+  requireAdmin: true // Require admin privileges for package installation
+});

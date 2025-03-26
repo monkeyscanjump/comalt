@@ -1,39 +1,44 @@
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { invalidateSession } from '@/utils/auth';
 import { clearCachedToken } from '@/services/tokenCache';
-import { errorResponse, getAuthToken } from '@/utils/api';
+import { getAuthToken } from '@/utils/api';
+import { withApiRoute } from '@/middlewares/withApiRoute';
+import { AuthService } from '@/services/authService';
 
-export async function POST(request: NextRequest) {
-  try {
-    const token = getAuthToken(request);
+/**
+ * Handle user logout
+ */
+const handleLogout = async (request: NextRequest) => {
+  // Get token from Authorization header
+  const token = getAuthToken(request);
 
-    if (!token) {
-      return errorResponse('No token provided', 'TOKEN_MISSING', 401);
-    }
-
-    // Use the invalidateSession function
-    const success = await invalidateSession(token);
-
-    // Clear token from cache
-    clearCachedToken(token);
-
-    if (success) {
-      return NextResponse.json({
-        success: true,
-        message: 'Logout successful'
-      });
-    } else {
-      return errorResponse('Failed to invalidate session', 'INVALIDATION_FAILED', 500);
-    }
-  } catch (error) {
-    console.error('Logout error:', error);
-    return errorResponse(
-      'Internal server error',
-      'SERVER_ERROR',
-      500,
-      { message: error instanceof Error ? error.message : String(error) }
-    );
+  if (!token) {
+    const error = new Error('No token provided');
+    (error as any).code = 'TOKEN_MISSING';
+    (error as any).status = 401;
+    throw error;
   }
-}
+
+  // Use the AuthService for session invalidation
+  const success = await AuthService.logout(token);
+
+  // Clear token from cache
+  clearCachedToken(token);
+
+  if (!success) {
+    const error = new Error('Failed to invalidate session');
+    (error as any).code = 'INVALIDATION_FAILED';
+    (error as any).status = 500;
+    throw error;
+  }
+
+  // Return success response
+  return NextResponse.json({
+    success: true,
+    message: 'Logout successful'
+  });
+};
+
+// Export the POST handler with the withApiRoute wrapper
+export const POST = withApiRoute(handleLogout);

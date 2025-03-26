@@ -35,12 +35,14 @@ export async function authenticateRequest(
   const publicMode = isPublicMode();
   console.log('[API Auth] Public mode:', publicMode);
 
-  // If in public mode and we don't require admin, authentication succeeds
-  if (publicMode && !requireAdmin) {
+  // If in public mode, authentication succeeds
+  // In public mode, all users have admin privileges too
+  if (publicMode) {
     console.log('[API Auth] Public mode enabled, skipping authentication');
     return {
       authenticated: true,
-      publicMode: true
+      publicMode: true,
+      isAdmin: true // In public mode, everyone has admin privileges
     };
   }
 

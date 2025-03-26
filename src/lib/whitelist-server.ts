@@ -18,9 +18,22 @@ export function isPublicMode(): boolean {
 export function isAddressAllowed(address: string): boolean {
   if (!address) return false;
 
-  const allowedAddresses = getAllowedAddresses();
-  const publicMode = allowedAddresses.length === 0;
+  // Use the existing isPublicMode function instead of recalculating
+  const publicMode = isPublicMode();
 
   // Either we're in public mode or the address is explicitly allowed
-  return publicMode || allowedAddresses.includes(address);
+  return publicMode || getAllowedAddresses().includes(address);
+}
+
+// Check if an address is an admin
+export function isAddressAdmin(address: string): boolean {
+  if (!address) return false;
+
+  // In public mode, everyone is an admin
+  if (isPublicMode()) return true;
+
+  const allowedAddresses = getAllowedAddresses();
+
+  // The first address in the list is the admin
+  return allowedAddresses[0] === address;
 }
