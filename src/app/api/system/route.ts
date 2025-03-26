@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import os from 'os';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { getAuthToken, errorResponse, validateAuthToken } from '@/utils/api';
+import { getAuthToken, errorResponse, validateAuthToken, isTokenExpired, processApiError } from '@/utils/api';
 import { isPublicMode } from '@/lib/whitelist-server';
 import type {
   SystemInfo,
@@ -13,7 +13,7 @@ import type {
   SystemGraphics,
   SystemNetworkInterface,
   SystemCpu,
-  DockerInfo  // Import DockerInfo type
+  DockerInfo
 } from '@/types/systemInfo';
 
 // Import specific modules from systeminformation
@@ -29,7 +29,7 @@ import {
 const execAsync = promisify(exec);
 
 // Max age for cache control (in seconds)
-const CACHE_MAX_AGE = 0; // Disable caching completely - was 5 seconds
+const CACHE_MAX_AGE = 0; // Disable caching completely
 
 // Valid component keys
 const VALID_COMPONENTS: SystemInfoComponentKey[] = ['memory', 'storage', 'network', 'processes'];
@@ -42,26 +42,22 @@ async function checkDockerStatus(): Promise<DockerInfo> {
 
   try {
     // Use the existing Docker status API directly
-    // This leverages the robust Docker detection already implemented
     console.log('[System API] Calling internal Docker status API');
 
-    // Create a server-side fetch to the Docker status API
     const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
     const host = process.env.HOSTNAME || 'localhost';
     const port = process.env.PORT || '3000';
     const baseUrl = `${protocol}://${host}:${port}`;
 
-    // Make the request to the internal Docker status API
     const dockerStatusUrl = `${baseUrl}/api/docker/status`;
     console.log(`[System API] Fetching from internal API: ${dockerStatusUrl}`);
 
-    // Use native fetch in a server component
     const response = await fetch(dockerStatusUrl, {
       headers: {
         'Accept': 'application/json',
-        'X-Internal-Request': 'true' // Add a header to identify internal requests
+        'X-Internal-Request': 'true'
       },
-      next: { revalidate: 0 } // Ensure fresh data
+      next: { revalidate: 0 }
     });
 
     if (!response.ok) {
@@ -80,9 +76,8 @@ async function checkDockerStatus(): Promise<DockerInfo> {
   } catch (error) {
     console.error('[System API] Error fetching Docker status:', error);
 
-    // Fallback implementation if internal API call fails
+    // Fallback implementation
     try {
-      // Try direct command for Docker version
       const { stdout } = await execAsync('docker --version', { timeout: 3000 });
       const versionMatch = stdout.match(/Docker version ([0-9.]+)/);
       const version = versionMatch ? versionMatch[1] : 'Unknown';
@@ -106,7 +101,13 @@ export async function GET(request: NextRequest) {
   const startTime = Date.now();
 
   try {
-    // Check if app is in public mode using existing server-side implementation
+    // CRITICAL: Check for known token expiration FIRST
+    if (isTokenExpired()) {
+      console.log('[System API] Token already known to be expired, rejecting request immediately');
+      return errorResponse('Token expired', 'TOKEN_EXPIRED', 401);
+    }
+
+    // Check if app is in public mode
     const publicMode = isPublicMode();
     console.log('[System API] Public mode:', publicMode);
 
@@ -120,8 +121,22 @@ export async function GET(request: NextRequest) {
         return errorResponse('Authentication required', 'AUTH_REQUIRED', 401);
       }
 
-      // Validate the token
-      const tokenResult = await validateAuthToken(token);
+      // Wrap token validation in try/catch to handle JWT errors
+      let tokenResult;
+      try {
+        tokenResult = await validateAuthToken(token);
+      } catch (tokenError) {
+        // Process error to detect token expiration
+        processApiError(tokenError);
+        console.error('[System API] Token validation failed:', tokenError);
+
+        return errorResponse(
+          'Authentication failed',
+          'AUTH_FAILED',
+          401,
+          { message: tokenError instanceof Error ? tokenError.message : String(tokenError) }
+        );
+      }
 
       if (!tokenResult.valid) {
         console.log('[System API] Invalid token:', tokenResult.error);
@@ -141,7 +156,7 @@ export async function GET(request: NextRequest) {
       console.log('[System API] Authentication successful');
     }
 
-    // Get the component parameter (if any)
+    // Get the component parameter
     const url = new URL(request.url);
     const componentParam = url.searchParams.get('component');
 
@@ -205,7 +220,6 @@ export async function GET(request: NextRequest) {
       }
 
       console.log(`[System API] Component ${component} retrieved successfully`);
-      // Set cache control headers for component data
       return createResponse(responseData);
     }
 
@@ -220,7 +234,7 @@ export async function GET(request: NextRequest) {
         diskLayoutInfo,
         networkInterfacesInfo,
         osInfoData,
-        dockerInfo  // Add Docker info check
+        dockerInfo
       ] = await Promise.all([
         cpu(),
         mem(),
@@ -228,13 +242,13 @@ export async function GET(request: NextRequest) {
         diskLayout(),
         networkInterfaces(),
         osInfo(),
-        checkDockerStatus()  // Get Docker status
+        checkDockerStatus()
       ]);
 
       console.log('[System API] All system data collected');
       console.log('[System API] Docker status:', dockerInfo.installed ? 'Installed' : 'Not installed');
 
-      // Format CPU cache values from numbers to strings with units
+      // Format CPU cache values
       const formattedCache: SystemCpu['cache'] = {
         l1d: cpuInfo.cache?.l1d ? formatCacheSize(cpuInfo.cache.l1d) : undefined,
         l1i: cpuInfo.cache?.l1i ? formatCacheSize(cpuInfo.cache.l1i) : undefined,
@@ -269,7 +283,7 @@ export async function GET(request: NextRequest) {
         },
         uptime: formatUptime(os.uptime()),
         pm2Processes: await getPm2Processes(),
-        docker: dockerInfo  // Add Docker info to the response
+        docker: dockerInfo
       };
 
       console.log('[System API] System info prepared successfully');
@@ -288,6 +302,9 @@ export async function GET(request: NextRequest) {
     }
   } catch (unexpectedError) {
     console.error('[System API] Unexpected error in system API route:', unexpectedError);
+    // Process error to detect token expiration
+    processApiError(unexpectedError);
+
     return errorResponse(
       'An unexpected error occurred',
       'UNEXPECTED_ERROR',
@@ -315,9 +332,7 @@ function createResponse(data: any) {
   return response;
 }
 
-/**
- * Format memory information
- */
+// The formatting functions remain the same
 function formatMemory(memoryInfo: any) {
   return {
     total: (memoryInfo.total / (1024 * 1024 * 1024)).toFixed(2) + ' GB',
@@ -327,9 +342,6 @@ function formatMemory(memoryInfo: any) {
   };
 }
 
-/**
- * Format disk information
- */
 function formatDisks(diskLayoutInfo: any[]): SystemDisk[] {
   return diskLayoutInfo.map(disk => ({
     device: disk.device,
@@ -344,9 +356,6 @@ function formatDisks(diskLayoutInfo: any[]): SystemDisk[] {
   }));
 }
 
-/**
- * Format graphics information
- */
 function formatGraphics(graphicsInfo: { controllers: any[] }): SystemGraphics[] {
   return graphicsInfo.controllers.map(gpu => ({
     vendor: gpu.vendor || 'N/A',
@@ -357,9 +366,6 @@ function formatGraphics(graphicsInfo: { controllers: any[] }): SystemGraphics[] 
   }));
 }
 
-/**
- * Format network information
- */
 function formatNetwork(networkInterfacesInfo: any): SystemNetworkInterface[] {
   const networkArray = Array.isArray(networkInterfacesInfo)
     ? networkInterfacesInfo
@@ -380,9 +386,6 @@ function formatNetwork(networkInterfacesInfo: any): SystemNetworkInterface[] {
     }));
 }
 
-/**
- * Get PM2 process information
- */
 async function getPm2Processes() {
   try {
     const { stdout } = await execAsync('pm2 jlist');
@@ -405,9 +408,6 @@ async function getPm2Processes() {
   }
 }
 
-/**
- * Format cache size values to KB, MB or GB with appropriate units
- */
 function formatCacheSize(sizeInKB: number): string {
   if (!sizeInKB) return 'N/A';
 
@@ -420,9 +420,6 @@ function formatCacheSize(sizeInKB: number): string {
   }
 }
 
-/**
- * Format uptime in a human-readable format
- */
 function formatUptime(seconds: number): string {
   const days = Math.floor(seconds / (3600 * 24));
   const hours = Math.floor((seconds % (3600 * 24)) / 3600);

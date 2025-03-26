@@ -4,6 +4,66 @@ import { isAddressAllowed } from '@/config/whitelist';
 import { getCachedToken, setCachedToken } from '@/services/tokenCache';
 import jwt from 'jsonwebtoken';
 
+// Global token expiration state - will block all API requests when true
+let isTokenGloballyExpired = false;
+
+/**
+ * Check if the token is known to be expired
+ */
+export function isTokenExpired(): boolean {
+  return isTokenGloballyExpired;
+}
+
+/**
+ * Set the global token expiration state
+ */
+export function setTokenExpired(expired: boolean): void {
+  // Only log when the state changes
+  if (isTokenGloballyExpired !== expired) {
+    console.log(`[API] Token expired state set to: ${expired}`);
+  }
+  isTokenGloballyExpired = expired;
+}
+
+// Global API error handler for token expiration detection
+let globalApiErrorHandler: ((error: any) => any) | null = null;
+
+/**
+ * Register a global error handler for API responses
+ * This is called from AuthProvider to connect handleApiError
+ */
+export function registerApiErrorHandler(handler: (error: any) => any): void {
+  globalApiErrorHandler = handler;
+}
+
+/**
+ * Process an API error through the global handler
+ * Returns the error for chaining
+ */
+export function processApiError(error: any): any {
+  // Check for token expiration patterns directly
+  const isExpiredToken =
+    (error?.status === 401 && error?.errorCode === 'TOKEN_EXPIRED') ||
+    (error?.data?.errorCode === 'TOKEN_EXPIRED') ||
+    (error instanceof jwt.TokenExpiredError) ||
+    (error?.message && (
+      error.message.includes('token expired') ||
+      error.message.includes('Invalid token') ||
+      error.message.includes('jwt expired')
+    ));
+
+  if (isExpiredToken) {
+    console.warn('[API] Token expiration detected in error handler');
+    setTokenExpired(true);
+  }
+
+  // Pass to registered handler
+  if (globalApiErrorHandler) {
+    return globalApiErrorHandler(error);
+  }
+  return error;
+}
+
 // Rate limiting
 type RateLimitRequest = {
   ip: string;
@@ -159,6 +219,41 @@ export function getAuthToken(request: NextRequest): string | null {
 }
 
 /**
+ * Check token without throwing any errors - safer version that won't trigger JWT exceptions
+ * This is used for pre-verification to prevent unnecessary JWT errors
+ */
+export function isValidTokenFormat(token: string): boolean {
+  if (!token) return false;
+
+  // Basic format check
+  if (!token.includes('.') || token.split('.').length !== 3) {
+    return false;
+  }
+
+  // Try to decode without verification
+  try {
+    const parts = token.split('.');
+    const decodedPayload = JSON.parse(
+      Buffer.from(parts[1], 'base64').toString()
+    );
+
+    // Check if expired
+    if (decodedPayload.exp) {
+      const now = Math.floor(Date.now() / 1000);
+      if (decodedPayload.exp < now) {
+        // Token is expired - set global flag immediately
+        setTokenExpired(true);
+        return false;
+      }
+    }
+
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
+/**
  * Validates an authentication token
  */
 export async function validateAuthToken(token: string): Promise<{
@@ -171,6 +266,16 @@ export async function validateAuthToken(token: string): Promise<{
   errorCode?: string;
 }> {
   try {
+    // CRITICAL: Check if we already know the token is expired globally FIRST
+    if (isTokenGloballyExpired) {
+      console.log('[API] Skipping token validation - token already known to be expired');
+      return {
+        valid: false,
+        error: 'Token expired (globally flagged)',
+        errorCode: 'TOKEN_EXPIRED'
+      };
+    }
+
     if (!token) {
       return {
         valid: false,
@@ -179,7 +284,16 @@ export async function validateAuthToken(token: string): Promise<{
       };
     }
 
-    // Check cache first
+    // Pre-check token format and expiration without throwing errors
+    if (!isValidTokenFormat(token)) {
+      return {
+        valid: false,
+        error: 'Invalid token format or expired',
+        errorCode: 'TOKEN_INVALID'
+      };
+    }
+
+    // Check cache first - this avoids unnecessary JWT verification
     const cachedResult = getCachedToken(token);
     if (cachedResult) {
       return {
@@ -191,6 +305,7 @@ export async function validateAuthToken(token: string): Promise<{
       };
     }
 
+    // At this point we've done all the safe checks, now we verify the token which could throw
     // Verify the token
     const decoded = verifyToken(token);
     if (!decoded) {
@@ -222,6 +337,16 @@ export async function validateAuthToken(token: string): Promise<{
 
     // Handle specific JWT errors
     if (error instanceof jwt.TokenExpiredError) {
+      // CRITICAL: Mark token as expired globally IMMEDIATELY
+      setTokenExpired(true);
+
+      // Process through global error handler
+      processApiError({
+        status: 401,
+        errorCode: 'TOKEN_EXPIRED',
+        message: 'Token expired'
+      });
+
       return {
         valid: false,
         error: 'Token expired',
@@ -236,6 +361,9 @@ export async function validateAuthToken(token: string): Promise<{
         errorCode: 'TOKEN_INVALID'
       };
     }
+
+    // Process through global error handler for any other errors
+    processApiError(error);
 
     return {
       valid: false,

@@ -6,13 +6,20 @@ import packages from '@/config/packages.json';
 import fs from 'fs';
 import { Package } from '@/types/packages';
 import { authenticateRequest, createApiResponse, createErrorResponse } from '@/utils/apiAuth';
+import { isTokenExpired } from '@/utils/api'; // Add this import
 
 // GET handler for fetching packages
 export async function GET(request: NextRequest) {
   console.log('GET /api/packages - Fetching packages list');
 
   try {
-    // Use the new authentication utility
+    // CRITICAL: Check token expiration before authentication
+    if (isTokenExpired()) {
+      console.log('[Packages API] Blocking request - token already known to be expired');
+      return createErrorResponse('Token expired', 'TOKEN_EXPIRED', 401);
+    }
+
+    // Use the authentication utility
     const authResult = await authenticateRequest(request);
     if (authResult.error) return authResult.error;
 
@@ -83,8 +90,12 @@ export async function GET(request: NextRequest) {
     return createApiResponse(packageList);
   } catch (error) {
     console.error('Error in GET /api/packages:', error);
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    return createErrorResponse('Failed to fetch packages', errorMessage);
+    return createErrorResponse(
+      'Failed to fetch packages',
+      'PACKAGE_FETCH_FAILED',
+      500,
+      error instanceof Error ? error.message : String(error)
+    );
   }
 }
 
@@ -93,7 +104,13 @@ export async function POST(request: NextRequest) {
   console.log('POST /api/packages - Starting database repair');
 
   try {
-    // Use the new authentication utility
+    // CRITICAL: Check token expiration before authentication
+    if (isTokenExpired()) {
+      console.log('[Packages API] Blocking request - token already known to be expired');
+      return createErrorResponse('Token expired', 'TOKEN_EXPIRED', 401);
+    }
+
+    // Use the authentication utility
     const authResult = await authenticateRequest(request);
     if (authResult.error) return authResult.error;
 
@@ -183,7 +200,11 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error in POST /api/packages:', error);
-    const errorDetails = error instanceof Error ? error.message : String(error);
-    return createErrorResponse('Failed to repair packages', errorDetails);
+    return createErrorResponse(
+      'Repair operation failed',
+      'PACKAGE_REPAIR_FAILED',
+      500,
+      error instanceof Error ? error.message : String(error)
+    );
   }
 }

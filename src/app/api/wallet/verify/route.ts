@@ -7,11 +7,20 @@ import { getCachedToken, setCachedToken } from '@/services/tokenCache';
 import {
   errorResponse,
   getAuthToken,
-  validateAuthToken
+  validateAuthToken,
+  isTokenExpired,
+  processApiError
 } from '@/utils/api';
+import jwt from 'jsonwebtoken';
 
 export async function GET(request: NextRequest) {
   try {
+    // CRITICAL: Check for known token expiration FIRST, before getting or validating token
+    if (isTokenExpired()) {
+      console.log('[Wallet API] Token already known to be expired, rejecting request');
+      return errorResponse('Token expired', 'TOKEN_EXPIRED', 401);
+    }
+
     // Get token from Authorization header
     const token = getAuthToken(request);
 
@@ -27,7 +36,7 @@ export async function GET(request: NextRequest) {
     // Check cache first for better performance
     const cachedResult = getCachedToken(token);
     if (cachedResult) {
-      console.log('Using cached token verification result');
+      console.log('[Wallet API] Using cached token verification result');
       return NextResponse.json({
         valid: cachedResult.valid,
         address: cachedResult.address,
@@ -37,8 +46,27 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Verify the token
-    const tokenResult = await validateAuthToken(token);
+    // Verify the token - Wrap in try/catch to handle JWT errors
+    let tokenResult;
+    try {
+      tokenResult = await validateAuthToken(token);
+    } catch (tokenError) {
+      // Process error to detect token expiration
+      processApiError(tokenError);
+
+      // Check if this is a token expiration error
+      if (tokenError instanceof jwt.TokenExpiredError ||
+          (tokenError instanceof Error && tokenError.message.includes('expired'))) {
+        return errorResponse('Token expired', 'TOKEN_EXPIRED', 401);
+      }
+
+      return errorResponse(
+        'Token validation failed',
+        'TOKEN_VALIDATION_ERROR',
+        401,
+        { message: tokenError instanceof Error ? tokenError.message : String(tokenError) }
+      );
+    }
 
     if (!tokenResult.valid) {
       return errorResponse(
@@ -65,7 +93,7 @@ export async function GET(request: NextRequest) {
         sessionUser = session.user;
       }
     } catch (dbError) {
-      console.error('Session lookup failed:', dbError);
+      console.error('[Wallet API] Session lookup failed:', dbError);
       // Continue even if session lookup fails
     }
 
@@ -95,7 +123,11 @@ export async function GET(request: NextRequest) {
       isAdmin
     });
   } catch (error) {
-    console.error('Token verification error:', error);
+    console.error('[Wallet API] Token verification error:', error);
+
+    // Process error to detect token expiration
+    processApiError(error);
+
     return errorResponse(
       'Verification failed',
       'VERIFICATION_FAILED',

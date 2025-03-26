@@ -8,6 +8,7 @@ const nextConfig = {
     NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME,
     NEXT_PUBLIC_APP_VERSION: process.env.NEXT_PUBLIC_APP_VERSION,
     POLKADOT_API_URL: process.env.POLKADOT_API_URL || 'https://rpc.polkadot.io',
+    JWT_SECRET: process.env.JWT_SECRET
   },
   publicRuntimeConfig: {
     NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME,

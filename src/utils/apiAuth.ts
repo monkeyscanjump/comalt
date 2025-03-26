@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { extractTokenFromHeader, verifyToken } from '@/utils/auth';
 import { isPublicMode } from '@/lib/whitelist-server';
+import { processApiError, isTokenExpired } from '@/utils/api';
+import jwt from 'jsonwebtoken';
 
 interface AuthResult {
   authenticated: boolean;
@@ -46,47 +48,109 @@ export async function authenticateRequest(
   const authHeader = request.headers.get('authorization');
   const token = extractTokenFromHeader(authHeader);
 
+  // NEW: Check if token is already known to be expired (client-side check)
+  if (isTokenExpired() && token) {
+    console.log('[API Auth] Token already known to be expired, rejecting request');
+    const errorResponse = NextResponse.json({
+      error: 'Token expired',
+      errorCode: 'TOKEN_EXPIRED'
+    }, { status: 401 });
+
+    return {
+      authenticated: false,
+      publicMode,
+      error: errorResponse
+    };
+  }
+
   if (!token) {
     console.log('[API Auth] No token provided');
     return {
       authenticated: false,
       publicMode,
-      error: NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      error: NextResponse.json({
+        error: 'Authentication required',
+        errorCode: 'AUTH_REQUIRED'
+      }, { status: 401 })
     };
   }
 
-  // Verify the token
-  const payload = verifyToken(token);
-  if (!payload) {
-    console.log('[API Auth] Invalid token');
-    return {
-      authenticated: false,
-      publicMode,
-      error: NextResponse.json({ error: 'Invalid token' }, { status: 401 })
-    };
-  }
+  try {
+    // Verify the token
+    const payload = verifyToken(token);
+    if (!payload) {
+      console.log('[API Auth] Invalid token');
 
-  // Check admin privileges if required
-  if (requireAdmin && !payload.isAdmin) {
-    console.log('[API Auth] Admin privileges required');
+      // NEW: Process through global error handler
+      processApiError({
+        status: 401,
+        errorCode: 'TOKEN_INVALID',
+        message: 'Invalid token'
+      });
+
+      return {
+        authenticated: false,
+        publicMode,
+        error: NextResponse.json({
+          error: 'Invalid token',
+          errorCode: 'TOKEN_INVALID'
+        }, { status: 401 })
+      };
+    }
+
+    // Check admin privileges if required
+    if (requireAdmin && !payload.isAdmin) {
+      console.log('[API Auth] Admin privileges required');
+      return {
+        authenticated: true, // They are authenticated, just not authorized
+        publicMode,
+        payload,
+        userId: payload.userId,
+        isAdmin: false,
+        error: NextResponse.json({
+          error: 'Admin privileges required',
+          errorCode: 'ADMIN_REQUIRED'
+        }, { status: 403 })
+      };
+    }
+
+    console.log('[API Auth] Authentication successful');
     return {
-      authenticated: true, // They are authenticated, just not authorized
+      authenticated: true,
       publicMode,
       payload,
       userId: payload.userId,
-      isAdmin: false,
-      error: NextResponse.json({ error: 'Admin privileges required' }, { status: 403 })
+      isAdmin: payload.isAdmin
+    };
+  } catch (error) {
+    // NEW: Process through global error handler - will set global expiration flag if needed
+    console.error('[API Auth] Token verification error:', error);
+    processApiError(error);
+
+    // NEW: Check for token expiration
+    if (error instanceof jwt.TokenExpiredError) {
+      const errorResponse = NextResponse.json({
+        error: 'Token expired',
+        errorCode: 'TOKEN_EXPIRED'
+      }, { status: 401 });
+
+      return {
+        authenticated: false,
+        publicMode,
+        error: errorResponse
+      };
+    }
+
+    // Default error response
+    return {
+      authenticated: false,
+      publicMode,
+      error: NextResponse.json({
+        error: 'Authentication failed',
+        errorCode: 'AUTH_FAILED'
+      }, { status: 401 })
     };
   }
-
-  console.log('[API Auth] Authentication successful');
-  return {
-    authenticated: true,
-    publicMode,
-    payload,
-    userId: payload.userId,
-    isAdmin: payload.isAdmin
-  };
 }
 
 /**
@@ -110,12 +174,14 @@ export function createApiResponse(data: any, status = 200): NextResponse {
  */
 export function createErrorResponse(
   message: string,
-  details?: any,
-  status = 500
+  errorCode: string,
+  status = 500,
+  details?: any
 ): NextResponse {
   return createApiResponse(
     {
       error: message,
+      errorCode,
       details: details || undefined
     },
     status

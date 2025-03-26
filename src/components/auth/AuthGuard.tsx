@@ -6,6 +6,7 @@ import { LoadingState } from '@/components/LoadingState';
 import { ConnectWallet } from '@/components/auth/ConnectWallet';
 import { AccessDenied } from '@/components/auth/AccessDenied';
 import { SignatureRequest } from '@/components/auth/SignatureRequest';
+import { TokenExpired } from '@/components/auth/TokenExpired';
 import { usePathname } from 'next/navigation';
 import { config } from '@/config';
 import styles from './AuthComponents.module.css';
@@ -35,6 +36,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     wasSignatureRejected,
     isPublicMode,
     isCheckingAllowlist,
+    isTokenExpired,
     logout
   } = useAuth();
 
@@ -148,15 +150,6 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  /**
-   * Client-side authentication flow starts here
-   */
-
-  // Allow immediate access in public mode
-  if (isPublicMode) {
-    return <>{children}</>;
-  }
-
   // Show loading state while authenticating
   if (isLoading) {
     return (
@@ -166,6 +159,20 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         </div>
       </div>
     );
+  }
+
+  // Show token expired message
+  if (isTokenExpired) {
+    return (
+      <div className={styles.authPageContainer}>
+        <TokenExpired />
+      </div>
+    );
+  }
+
+  // Allow immediate access in public mode
+  if (isPublicMode) {
+    return <>{children}</>;
   }
 
   // Authentication flow for non-public mode

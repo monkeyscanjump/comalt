@@ -13,6 +13,7 @@ import {
 import type { InjectedAccountWithMeta } from '@polkadot/extension-inject/types';
 import type { User } from '@/types/user';
 import { useEnv } from '@/hooks/useEnv';
+import { registerApiErrorHandler, setTokenExpired } from '@/utils/api';
 
 /**
  * Generates a unique user ID from a wallet address
@@ -57,6 +58,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [token, setToken] = useState<string | null>(null);
   const [isCheckingAllowlist, setIsCheckingAllowlist] = useState(false);
 
+  // Token expiration state
+  const [isTokenExpired, setIsTokenExpired] = useState(false);
+
   // Signature states
   const [wasSignatureRejected, setWasSignatureRejected] = useState(false);
   const [isRequestingSignature, setIsRequestingSignature] = useState(false);
@@ -70,6 +74,41 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const appName = useEnv('APP_NAME', 'comAlt');
 
   /**
+   * Handle API errors and check for token expiration
+   */
+  const handleApiError = useCallback((error: any) => {
+    // Check for various token expiration indicators
+    const isExpiredToken =
+      (error?.status === 401 && error?.errorCode === 'TOKEN_EXPIRED') ||
+      (error?.data?.errorCode === 'TOKEN_EXPIRED') ||
+      (error?.message && (
+        error.message.includes('token expired') ||
+        error.message.includes('Invalid token') ||
+        error.message.includes('jwt expired')
+      ));
+
+    if (isExpiredToken) {
+      console.warn('[Auth] Token expired detected in API error');
+      setIsTokenExpired(true);
+      setTokenExpired(true); // Set the global flag for all API requests
+    }
+
+    return error;
+  }, []);
+
+  useEffect(() => {
+    // Register the global API error handler to detect token expiration
+    registerApiErrorHandler(handleApiError);
+
+    console.log('[Auth] Registered global API error handler');
+
+    // Clean up on unmount - use a pass-through function with correct signature
+    return () => {
+      registerApiErrorHandler((error) => error);
+    };
+  }, [handleApiError]);
+
+  /**
    * Logout and clear all authentication state
    * Define this function early with useCallback to use in effects
    */
@@ -81,6 +120,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       });
     }
 
+    // Reset all auth states
     setSelectedAccount(null);
     setWalletAddress(null);
     setIsAuthenticated(false);
@@ -88,6 +128,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setUser(null);
     setToken(null);
     setWasSignatureRejected(false);
+    setIsTokenExpired(false);  // Clear local token expiration state
+    setTokenExpired(false);    // Clear global token expiration state
 
     // Clear localStorage
     localStorage.removeItem(config.auth.walletAddress);
@@ -121,6 +163,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const storedAddress = localStorage.getItem(config.auth.walletAddress);
         const storedToken = localStorage.getItem(config.auth.tokenName);
         const isAlreadyAuthenticated = !!storedToken;
+
+        // Add this block to validate the token on load
+        // Validate the token immediately on startup
+        if (storedToken) {
+          // Validate the token immediately - don't wait for API calls to fail
+          console.log('[Auth] Validating stored token on startup');
+          AuthAPI.verifyToken(storedToken).then(result => {
+            if (!result.valid) {
+              console.warn('[Auth] Stored token is invalid - marking as expired');
+              setIsTokenExpired(true);
+              setTokenExpired(true); // Set global API flag to block requests
+            }
+          }).catch(err => {
+            console.error('[Auth] Token validation error:', err);
+            setIsTokenExpired(true);
+            setTokenExpired(true); // Set global API flag to block requests
+          });
+        }
 
         if (storedAddress) {
           setWalletAddress(storedAddress);
@@ -282,6 +342,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     // Reset signature rejection state when selecting a new account
     setWasSignatureRejected(false);
+
+    // Also reset token expiration state (both local and global)
+    setIsTokenExpired(false);
+    setTokenExpired(false);
   };
 
   /**
@@ -330,6 +394,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setIsRequestingSignature(true);
       setWasSignatureRejected(false);
 
+      // Clear token expired state when requesting a new signature
+      setIsTokenExpired(false);
+      setTokenExpired(false); // Clear global token expired state
+
       // Create a unique message
       const message = `Sign this message to authenticate with ${appName}: ${Date.now()}`;
 
@@ -364,6 +432,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return true;
       } catch (apiError) {
         console.error('API verification error:', apiError);
+        handleApiError(apiError); // Check if this is a token expiration
         setError(apiError instanceof Error ? apiError.message : 'Server verification failed');
         return false;
       }
@@ -383,7 +452,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setToken,
     setIsAuthenticated,
     setUser,
-    appName
+    appName,
+    handleApiError
   ]);
 
   /**
@@ -391,8 +461,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
    */
   useEffect(() => {
     // Skip if still loading, already authenticated, requesting signature, or in public mode
-    // Also skip if signature was previously rejected - don't auto-retry after rejection
-    if (isLoading || isAuthenticated || isRequestingSignature || isPublicMode || wasSignatureRejected) {
+    // Also skip if signature was previously rejected or token is expired - don't auto-retry
+    if (isLoading || isAuthenticated || isRequestingSignature || isPublicMode ||
+        wasSignatureRejected || isTokenExpired) {
       return;
     }
 
@@ -417,6 +488,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     isRequestingSignature,
     isPublicMode,
     wasSignatureRejected,
+    isTokenExpired,
     requestSignature
   ]);
 
@@ -424,43 +496,82 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
    * Refresh authentication token
    */
   const refreshAuthToken = async (): Promise<boolean> => {
-    if (!isAuthenticated || !walletAddress || !token) return false;
+    if (!walletAddress || !token) {
+      console.log('[Auth] Cannot refresh: missing auth data', {
+        hasWalletAddress: !!walletAddress, hasToken: !!token
+      });
+      return false;
+    }
+
+    console.log('[Auth] Starting token refresh...');
 
     try {
-      // Verify wallet is still allowed before refreshing token
-      const addressIsAllowed = await isAddressAllowedAsync(walletAddress, true);
-
-      if (!addressIsAllowed) {
-        logout(); // Force logout if address no longer allowed
-        return false;
-      }
+      // Clear token expired state when refreshing (both local and global)
+      // Do this BEFORE making the API call to prevent race conditions
+      setIsTokenExpired(false);
+      setTokenExpired(false);
 
       // Use the API to refresh the token
-      try {
-        const response = await AuthAPI.refreshToken(token);
+      const response = await fetch('/api/wallet/refresh', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
 
-        if (!response || !response.token) {
-          console.error('Token refresh API returned invalid response:', response);
-          return false;
+      // Check for any errors in the response
+      if (!response.ok) {
+        console.error('[Auth] Token refresh API returned error:', response.status);
+
+        // Process the error response if available
+        try {
+          const errorData = await response.json();
+          console.error('[Auth] Token refresh error details:', errorData);
+
+          // If the address is no longer allowed, force logout
+          if (errorData.errorCode === 'ADDRESS_NOT_ALLOWED') {
+            console.warn('[Auth] Address no longer allowed, forcing logout');
+            logout();
+          }
+        } catch (parseError) {
+          console.error('[Auth] Failed to parse error response');
         }
 
-        // Update state with the new token
-        setToken(response.token);
-        localStorage.setItem(config.auth.tokenName, response.token);
-
-        // Update user data if returned
-        if (response.user) {
-          setUser(response.user);
-          localStorage.setItem(config.auth.userData, JSON.stringify(response.user));
-        }
-
-        return true;
-      } catch (apiError) {
-        console.error('Token refresh API error:', apiError);
         return false;
       }
+
+      // Parse the successful response
+      const data = await response.json();
+
+      if (!data.success || !data.token) {
+        console.error('[Auth] Token refresh API returned invalid response:', data);
+        return false;
+      }
+
+      console.log('[Auth] Token refresh successful, updating state');
+
+      // Update state with the new token
+      setToken(data.token);
+      localStorage.setItem(config.auth.tokenName, data.token);
+
+      // Update user data if returned
+      if (data.user) {
+        setUser(data.user);
+        localStorage.setItem(config.auth.userData, JSON.stringify(data.user));
+      }
+
+      // Ensure authenticated state is set
+      setIsAuthenticated(true);
+
+      console.log('[Auth] Token refresh completed successfully');
+      return true;
     } catch (err) {
-      console.error('Token refresh error:', err);
+      console.error('[Auth] Token refresh error:', err);
+
+      // If there's a network/unexpected error, don't set token as expired
+      // since this is a different kind of error, and we might want to retry
+
       return false;
     }
   };
@@ -509,7 +620,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         isLoading,
         isAllowed,
         isConnecting,
-        isCheckingAllowlist
+        isCheckingAllowlist,
+
+        // Token expiration state
+        handleApiError,
+        isTokenExpired
       }}
     >
       {children}

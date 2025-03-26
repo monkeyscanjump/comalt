@@ -6,6 +6,8 @@ export interface AuthContextValue {
   isAuthenticated: boolean;
   isAllowed: boolean;
   isLoading: boolean;
+  isTokenExpired: boolean;
+  handleApiError: (error: any) => any;
 
   // Wallet state
   isWalletConnected: boolean;

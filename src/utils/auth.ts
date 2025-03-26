@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 import { isAddressAllowed } from '@/config/whitelist';
 import prisma from '@/lib/prisma';
 import { TokenPayload } from '@/types/auth';
+import ms from 'ms';
 
 // Get JWT secret from environment
 export function getJwtSecret(): string {
@@ -37,36 +38,59 @@ export function extractTokenFromHeader(authHeader: string | null): string | null
 export function generateToken(payload: TokenPayload): string {
   if (!JWT_SECRET) throw new Error('JWT_SECRET is not defined');
 
+  // Use expiration from env or default to 24h
+  const expiresIn = process.env.JWT_EXPIRES_IN || '24h';
+
   // Create a JWT token with standard fields
-  return jwt.sign(payload, JWT_SECRET, {
-    expiresIn: '24h', // Token expires in 24 hours
-  });
+  // Fixed: properly type the secret and options separately
+  return jwt.sign(
+    payload,
+    JWT_SECRET,
+    { expiresIn } as jwt.SignOptions
+  );
 }
 
 /**
  * Verify JWT token
  * @param token JWT token to verify
+ * @param skipExpirationCheck Whether to skip expiration validation
  * @returns Decoded token payload or null if invalid
  */
-export function verifyToken(token: string): TokenPayload | null {
+export function verifyToken(token: string, skipExpirationCheck = false): TokenPayload | null {
   if (!JWT_SECRET) throw new Error('JWT_SECRET is not defined');
 
+  // Add basic format check before verification
+  if (!token || !token.includes('.') || token.split('.').length !== 3) {
+    console.warn('Invalid token format detected');
+    return null;
+  }
+
+  // Verify options
+  const options: jwt.VerifyOptions = {};
+
+  // Skip expiration check if requested
+  if (skipExpirationCheck) {
+    options.ignoreExpiration = true;
+  }
+
+  // Verify the token
+  const decoded = jwt.verify(token, JWT_SECRET, options) as TokenPayload;
+
+  // Validate payload has required fields
+  if (!decoded || !decoded.sub || !decoded.address) {
+    console.warn('Token has invalid payload structure');
+    return null;
+  }
+
+  return decoded;
+}
+
+/**
+ * Safe version of verifyToken that doesn't throw errors
+ */
+export function safeVerifyToken(token: string, skipExpirationCheck = false): TokenPayload | null {
   try {
-    // Add basic format check before verification
-    if (!token || !token.includes('.') || token.split('.').length !== 3) {
-      console.warn('Invalid token format detected');
-      return null;
-    }
-
-    const decoded = jwt.verify(token, JWT_SECRET) as TokenPayload;
-
-    // Validate payload has required fields
-    if (!decoded || !decoded.sub || !decoded.address) {
-      console.warn('Token has invalid payload structure');
-      return null;
-    }
-
-    return decoded;
+    return verifyToken(token, skipExpirationCheck);
   } catch (error) {
     console.error('Token verification error:', error);
     return null;
@@ -84,49 +108,122 @@ export function verifyAndCheckAccess(token: string): {
   address: string | null;
   payload: TokenPayload | null;
 } {
-  const payload = verifyToken(token);
+  try {
+    const payload = verifyToken(token);
 
-  if (!payload) {
+    if (!payload) {
+      return { valid: false, allowed: false, address: null, payload: null };
+    }
+
+    const allowed = isAddressAllowed(payload.address);
+
+    return {
+      valid: true,
+      allowed,
+      address: payload.address,
+      payload
+    };
+  } catch (error) {
+    console.error('Access check error:', error);
     return { valid: false, allowed: false, address: null, payload: null };
   }
+}
 
-  const allowed = isAddressAllowed(payload.address);
+/**
+ * Extract data from an expired token without verification
+ */
+function extractExpiredTokenData(token: string): { address?: string; userId?: string } | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
 
-  return {
-    valid: true,
-    allowed,
-    address: payload.address,
-    payload
-  };
+    const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
+    return {
+      address: payload.address,
+      userId: payload.sub
+    };
+  } catch (error) {
+    console.error('Failed to extract data from expired token:', error);
+    return null;
+  }
 }
 
 /**
  * Refresh user session with new token
  * @param currentToken Current token to refresh
+ * @param addressOverride Optional address override if token data can't be extracted
  * @returns New token or null if refresh fails
  */
-export async function refreshSession(currentToken: string): Promise<string | null> {
+export async function refreshSession(
+  currentToken: string,
+  addressOverride?: string
+): Promise<string | null> {
   try {
-    // Verify the current token
-    const payload = verifyToken(currentToken);
-    if (!payload) return null;
+    let userId: string | undefined;
+    let address: string | undefined = addressOverride;
+    let isAdmin = false;
 
-    // Check if user is still allowed
-    const allowed = isAddressAllowed(payload.address);
-    if (!allowed) return null;
+    // Try to verify the current token, but allow expired tokens
+    try {
+      const payload = verifyToken(currentToken, true); // Skip expiration check
+      if (payload) {
+        userId = payload.sub;
+        address = payload.address;
+        isAdmin = !!payload.isAdmin;
+      }
+    } catch (tokenError) {
+      console.log('Token verification failed, extracting data without verification:', tokenError);
 
-    // Lookup user to ensure they still exist
-    const user = await prisma.user.findUnique({
-      where: { id: payload.sub }
-    });
+      // If token is expired, try to extract the data without verification
+      const tokenData = extractExpiredTokenData(currentToken);
+      if (tokenData) {
+        address = tokenData.address || addressOverride;
+        userId = tokenData.userId;
+      }
+    }
 
-    if (!user) return null;
+    // If we couldn't extract an address, use the override or fail
+    if (!address && !addressOverride) {
+      console.error('No address could be extracted from token or provided as override');
+      return null;
+    }
+
+    // Final address to use
+    const finalAddress = address || addressOverride!;
+
+    // Check if address is still allowed
+    const allowed = await isAddressAllowed(finalAddress);
+    if (!allowed) {
+      console.warn(`Address ${finalAddress} is no longer allowed`);
+      return null;
+    }
+
+    // If we don't have a user ID yet, try to get it from the database
+    if (!userId) {
+      try {
+        const user = await prisma.user.findUnique({
+          where: { address: finalAddress }
+        });
+
+        if (user) {
+          userId = user.id;
+          isAdmin = !!user.isAdmin;
+        } else {
+          // If no user found, use address as the ID
+          userId = finalAddress;
+        }
+      } catch (dbError) {
+        console.error('Database error during refresh:', dbError);
+        // If DB lookup fails, use address as ID
+        userId = finalAddress;
+      }
+    }
 
     // Generate a new token with the same user info
     const newToken = generateToken({
-      sub: user.id,
-      address: user.address,
-      isAdmin: user.isAdmin || true
+      sub: userId,
+      address: finalAddress,
+      isAdmin
     });
 
     // Update the session in database
@@ -135,12 +232,44 @@ export async function refreshSession(currentToken: string): Promise<string | nul
         where: { token: currentToken }
       });
 
+      // Get expiration time from env or default
+      const expiresIn = process.env.JWT_EXPIRES_IN || '24h';
+
+      // FIX: Handle duration calculation differently
+      let durationMs = 86400000; // Default 24 hours in milliseconds
+
+      try {
+        if (typeof expiresIn === 'string') {
+          // Parse with a more reliable approach
+          if (expiresIn.endsWith('h')) {
+            const hours = parseInt(expiresIn.slice(0, -1), 10);
+            durationMs = hours * 3600000; // Convert hours to ms
+          } else if (expiresIn.endsWith('m')) {
+            const minutes = parseInt(expiresIn.slice(0, -1), 10);
+            durationMs = minutes * 60000; // Convert minutes to ms
+          } else if (expiresIn.endsWith('s')) {
+            const seconds = parseInt(expiresIn.slice(0, -1), 10);
+            durationMs = seconds * 1000; // Convert seconds to ms
+          } else if (expiresIn.endsWith('d')) {
+            const days = parseInt(expiresIn.slice(0, -1), 10);
+            durationMs = days * 86400000; // Convert days to ms
+          } else {
+            durationMs = parseInt(expiresIn, 10);
+          }
+        }
+      } catch (parseError) {
+        console.error('Error parsing duration:', parseError);
+        // Use default if parsing fails
+      }
+
+      const expiresAt = new Date(Date.now() + durationMs);
+
       if (session) {
         await prisma.session.update({
           where: { id: session.id },
           data: {
             token: newToken,
-            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
+            expiresAt
           }
         });
       } else {
@@ -148,8 +277,8 @@ export async function refreshSession(currentToken: string): Promise<string | nul
         await prisma.session.create({
           data: {
             token: newToken,
-            userId: user.id,
-            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
+            userId,
+            expiresAt
           }
         });
       }

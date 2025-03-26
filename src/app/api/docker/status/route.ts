@@ -1,18 +1,25 @@
+export const dynamic = 'force-dynamic';
+
 import { NextRequest } from 'next/server';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { authenticateRequest, createApiResponse, createErrorResponse } from '@/utils/apiAuth';
+import { isTokenExpired, processApiError } from '@/utils/api';
 import path from 'path';
 import * as fsPromises from 'fs/promises';
 import fs from 'fs';
 import os from 'os';
 
-export const dynamic = 'force-dynamic';
-
 const execAsync = promisify(exec);
 
 export async function GET(request: NextRequest) {
   try {
+    // CRITICAL: Check token expiration before authentication
+    if (isTokenExpired()) {
+      console.log('[Docker API] Blocking request - token already known to be expired');
+      return createErrorResponse('Token expired', 'TOKEN_EXPIRED', 401);
+    }
+
     // Maintain proper authentication - only authorized users or public mode
     const authResult = await authenticateRequest(request);
     if (authResult.error) return authResult.error;
@@ -30,6 +37,12 @@ export async function GET(request: NextRequest) {
     if (wantProgress) {
       try {
         const statusFile = path.join(os.tmpdir(), 'docker-install-status.json');
+        if (!fs.existsSync(statusFile)) {
+          return createApiResponse({
+            status: 'unknown'
+          });
+        }
+
         const status = JSON.parse(await fsPromises.readFile(statusFile, 'utf-8'));
 
         if (status.status === 'completed' && status.version) {
@@ -56,7 +69,8 @@ export async function GET(request: NextRequest) {
 
         return createApiResponse(status);
       } catch (err) {
-        // Status file doesn't exist yet
+        // Status file doesn't exist or couldn't be read
+        console.warn('Error reading Docker install status file:', err);
         return createApiResponse({
           status: 'unknown'
         });
@@ -155,10 +169,15 @@ export async function GET(request: NextRequest) {
     }
   } catch (err) {
     console.error('Error in Docker status API:', err);
+
+    // Process the error through the global handler to detect token expiration
+    processApiError(err);
+
     return createErrorResponse(
       'Failed to check Docker status',
-      err instanceof Error ? err.message : String(err),
-      500
+      'DOCKER_STATUS_ERROR',
+      500,
+      err instanceof Error ? err.message : String(err)
     );
   }
 }

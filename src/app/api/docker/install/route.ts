@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { authenticateRequest, createApiResponse, createErrorResponse } from '@/utils/apiAuth';
+import { isTokenExpired, processApiError } from '@/utils/api'; // Add these imports
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
@@ -12,20 +13,48 @@ const execAsync = promisify(exec);
 
 export async function POST(request: NextRequest) {
   try {
-    // Check authorization using our new utility
-    const authResult = await authenticateRequest(request, true); // true for requireAdmin
+    // CRITICAL: Check token expiration before authentication
+    if (isTokenExpired()) {
+      console.log('[Docker Install] Blocking request - token already known to be expired');
+      return createErrorResponse('Token expired', 'TOKEN_EXPIRED', 401);
+    }
+
+    // Check authorization using our utility
+    const authResult = await authenticateRequest(request, true); // Require admin
     if (authResult.error) return authResult.error;
 
+    console.log('[Docker Install] Auth successful, proceeding with installation');
+
     // Get installation options from request body
-    const body = await request.json();
+    let body;
+    try {
+      body = await request.json();
+    } catch (jsonError) {
+      console.error('[Docker Install] Failed to parse request body:', jsonError);
+      return createErrorResponse(
+        'Invalid request body',
+        'INVALID_REQUEST',
+        400
+      );
+    }
+
     const { platform, distro, includeCompose = true } = body;
+
+    // Validate platform parameter
+    if (!platform) {
+      return createErrorResponse(
+        'Platform parameter is required',
+        'MISSING_PARAMETER',
+        400
+      );
+    }
 
     // Create temp directory for installation files
     const tempDir = path.join(os.tmpdir(), 'docker-install');
     try {
       await fs.mkdir(tempDir, { recursive: true });
     } catch (err) {
-      console.log('Temp directory already exists or creation failed');
+      console.log('[Docker Install] Temp directory already exists or creation failed');
     }
 
     // Create a log file for installation progress
@@ -78,14 +107,14 @@ export async function POST(request: NextRequest) {
         echo "Installation package downloaded to: ${path.join(tempDir, 'Docker.dmg')}" >> ${logFile}
       `;
     } else {
-      return createErrorResponse(`Unsupported platform: ${platform}`, { code: 'UNSUPPORTED_PLATFORM' }, 400);
+      return createErrorResponse(`Unsupported platform: ${platform}`, 'UNSUPPORTED_PLATFORM', 400);
     }
 
     // Execute installation in background
     exec(installScript, async (error, stdout, stderr) => {
       try {
         if (error) {
-          console.error(`Docker installation error: ${error.message}`);
+          console.error(`[Docker Install] Installation error: ${error.message}`);
           await fs.appendFile(logFile, `\nError: ${error.message}\n`);
           await fs.writeFile(
             statusFile,
@@ -99,9 +128,13 @@ export async function POST(request: NextRequest) {
           return;
         }
 
+        console.log('[Docker Install] Installation command completed');
+
         // Check if installation was successful by running docker --version
         try {
           const { stdout: versionOutput } = await execAsync('docker --version');
+          console.log('[Docker Install] Docker version check successful:', versionOutput.trim());
+
           await fs.appendFile(logFile, `\nDocker installed successfully: ${versionOutput}\n`);
           await fs.writeFile(
             statusFile,
@@ -114,6 +147,8 @@ export async function POST(request: NextRequest) {
           );
         } catch (versionErr) {
           // Docker command not found, might need a system restart
+          console.log('[Docker Install] Docker version check failed, may need restart');
+
           await fs.appendFile(logFile, '\nInstallation may require a system restart.\n');
           await fs.writeFile(
             statusFile,
@@ -126,7 +161,21 @@ export async function POST(request: NextRequest) {
           );
         }
       } catch (fsErr) {
-        console.error('Error writing installation logs:', fsErr);
+        console.error('[Docker Install] Error writing installation logs:', fsErr);
+
+        // Try to update status file with the error
+        try {
+          await fs.writeFile(
+            statusFile,
+            JSON.stringify({
+              status: 'error',
+              error: fsErr instanceof Error ? fsErr.message : String(fsErr),
+              timestamp: new Date().toISOString()
+            })
+          );
+        } catch (statusErr) {
+          console.error('[Docker Install] Could not update status file with error:', statusErr);
+        }
       }
     });
 
@@ -134,15 +183,21 @@ export async function POST(request: NextRequest) {
     return createApiResponse({
       message: 'Docker installation started',
       status: 'installing',
-      logFile
+      logFile,
+      statusFile
     });
 
   } catch (err) {
-    console.error('Error in Docker installation API:', err);
+    console.error('[Docker Install] Error in Docker installation API:', err);
+
+    // Process the error through the global handler to detect token expiration
+    processApiError(err);
+
     return createErrorResponse(
       'Failed to start Docker installation',
-      err instanceof Error ? err.message : String(err),
-      500
+      'DOCKER_INSTALL_ERROR',
+      500,
+      err instanceof Error ? err.message : String(err)
     );
   }
 }

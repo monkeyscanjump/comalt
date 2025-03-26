@@ -5,6 +5,7 @@ import prisma from '@/lib/prisma';
 import fs from 'fs';
 import { rimraf } from 'rimraf';
 import { authenticateRequest, createApiResponse, createErrorResponse } from '@/utils/apiAuth';
+import { isTokenExpired } from '@/utils/api';
 
 export async function POST(
   request: NextRequest,
@@ -13,7 +14,13 @@ export async function POST(
   console.log(`Starting uninstall process for package: ${params.id}`);
 
   try {
-    // Use the new authentication utility
+    // CRITICAL: Check token expiration before authentication
+    if (isTokenExpired()) {
+      console.log('[Package Uninstall] Blocking request - token already known to be expired');
+      return createErrorResponse('Token expired', 'TOKEN_EXPIRED', 401);
+    }
+
+    // Use the authentication utility
     const authResult = await authenticateRequest(request);
     if (authResult.error) return authResult.error;
 
@@ -31,7 +38,11 @@ export async function POST(
 
     if (!packageData) {
       console.log(`Package not found in database: ${id}`);
-      return createErrorResponse('Package not found', null, 404);
+      return createErrorResponse(
+        'Package not found',
+        'PACKAGE_NOT_FOUND',
+        404
+      );
     }
 
     console.log(`Package found: ${packageData.name}, isInstalled=${packageData.isInstalled}`);
@@ -117,7 +128,12 @@ export async function POST(
       }
     }
 
-    return createErrorResponse('Failed to uninstall package', errorMessage);
+    return createErrorResponse(
+      'Failed to uninstall package',
+      'UNINSTALL_FAILED',
+      500,
+      errorMessage
+    );
   }
 }
 

@@ -7,6 +7,7 @@ import { execSync } from 'child_process';
 import fs from 'fs';
 import { getCommandsAsArray } from '@/types/packages';
 import { authenticateRequest, createApiResponse, createErrorResponse } from '@/utils/apiAuth';
+import { isTokenExpired, processApiError } from '@/utils/api';
 
 // Helper function to safely execute commands
 function safeExecSync(command: string, options: any = {}): string {
@@ -39,7 +40,13 @@ export async function POST(
   console.log(`Starting install process for package: ${params.id}`);
 
   try {
-    // Use the new authentication utility
+    // CRITICAL: Check token expiration before authentication
+    if (isTokenExpired()) {
+      console.log('[Package Install] Blocking request - token already known to be expired');
+      return createErrorResponse('Token expired', 'TOKEN_EXPIRED', 401);
+    }
+
+    // Use the authentication utility
     const authResult = await authenticateRequest(request);
     if (authResult.error) return authResult.error;
 
@@ -54,13 +61,20 @@ export async function POST(
     const packageDef = packages.packages.find((p: any) => p.id === id);
     if (!packageDef) {
       console.log(`Package definition not found: ${id}`);
-      return createErrorResponse('Package not found', null, 404);
+      return createErrorResponse('Package not found', 'PACKAGE_NOT_FOUND', 404);
     }
 
     console.log(`Found package definition: ${packageDef.name}`);
 
     // Get request body for custom install path
-    const body = await request.json();
+    let body;
+    try {
+      body = await request.json();
+    } catch (e) {
+      console.log('No valid JSON body, using defaults');
+      body = {};
+    }
+
     const installPath = body.installPath || packageDef.defaultInstallPath;
 
     // Normalize path for Windows
@@ -159,6 +173,9 @@ export async function POST(
     console.error(`Error installing package ${params.id}:`, error);
     const errorMessage = error instanceof Error ? error.message : String(error);
 
+    // Process the error through the global handler to detect token expiration
+    processApiError(error);
+
     // Record error in database
     if (params?.id) {
       try {
@@ -204,6 +221,10 @@ export async function POST(
       }
     }
 
-    return createErrorResponse('Failed to install package', errorMessage);
+    return createErrorResponse(
+      'Failed to install package',
+      'PACKAGE_INSTALL_ERROR',
+      500,
+      errorMessage);
   }
 }
