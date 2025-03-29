@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useReducer } from 'react';
+import { useState, useEffect, useCallback, useReducer, useRef } from 'react'; // Added useRef
 import type { SystemInfo, SystemInfoComponentKey } from '@/types/systemInfo';
 import { transformSystemData } from '@/utils/dataTransformers';
 
@@ -13,7 +13,8 @@ const COMPONENT_PROPERTY_MAP: Record<SystemInfoComponentKey, keyof SystemInfo> =
   memory: 'memory',
   storage: 'disks',
   network: 'network',
-  processes: 'pm2Processes'
+  processes: 'pm2Processes',
+  docker: 'docker'
 };
 
 // State reducer for complex state management
@@ -54,7 +55,8 @@ const initialState: SystemInfoState = {
     memory: false,
     storage: false,
     network: false,
-    processes: false
+    processes: false,
+    docker: false
   },
   error: null,
   retryAttempts: 0,
@@ -194,6 +196,16 @@ export function useSystemInfo({
 }: UseSystemInfoOptions = {}) {
   const [state, dispatch] = useReducer(systemInfoReducer, initialState);
 
+  // Add refs to track in-progress requests
+  const fetchInProgressRef = useRef(false);
+  const componentFetchInProgress = useRef<Record<SystemInfoComponentKey, boolean>>({
+    memory: false,
+    storage: false,
+    network: false,
+    processes: false,
+    docker: false
+  });
+
   // Debug logging function
   const logDebug = useCallback((message: string, data?: any) => {
     console.log(`[SystemInfo] ${message}`, data ? data : '');
@@ -201,10 +213,20 @@ export function useSystemInfo({
 
   // Fetch complete system info - Define this first so we can use it in useEffect
   const fetchSystemInfo = useCallback(async (isInitialFetch = false) => {
+    // Skip if a fetch is already in progress
+    if (fetchInProgressRef.current) {
+      logDebug('Skipping duplicate fetch - request already in progress');
+      return;
+    }
+
+    // Set fetch in progress
+    fetchInProgressRef.current = true;
+
     // Start a timeout to force exit loading state
     const timeoutId = setTimeout(() => {
       logDebug('TIMEOUT: Forcing exit from loading state');
       dispatch({ type: 'FORCE_EXIT_LOADING' });
+      fetchInProgressRef.current = false; // Reset on timeout
     }, FETCH_TIMEOUT);
 
     dispatch({ type: 'FETCH_START', isInitialFetch });
@@ -288,6 +310,11 @@ export function useSystemInfo({
         type: 'FETCH_ERROR',
         error: err instanceof Error ? err.message : String(err)
       });
+    } finally {
+      // Allow a small delay before allowing new requests
+      setTimeout(() => {
+        fetchInProgressRef.current = false;
+      }, 100);
     }
   }, [isPublicMode, token, logDebug]);
 
@@ -347,6 +374,15 @@ export function useSystemInfo({
 
   // Fetch specific component data
   const fetchComponentData = useCallback(async (component: SystemInfoComponentKey) => {
+    // Skip if a fetch for this component is already in progress
+    if (componentFetchInProgress.current[component]) {
+      logDebug(`Skipping duplicate fetch for component ${component} - request already in progress`);
+      return;
+    }
+
+    // Set component fetch in progress
+    componentFetchInProgress.current[component] = true;
+
     logDebug(`Fetching component data: ${component}`);
     dispatch({ type: 'COMPONENT_REFRESH_START', component });
 
@@ -358,6 +394,7 @@ export function useSystemInfo({
         component,
         error: 'Request timed out'
       });
+      componentFetchInProgress.current[component] = false; // Reset on timeout
     }, FETCH_TIMEOUT);
 
     try {
@@ -473,6 +510,11 @@ export function useSystemInfo({
         component,
         error: err instanceof Error ? err.message : String(err)
       });
+    } finally {
+      // Allow a small delay before allowing new requests
+      setTimeout(() => {
+        componentFetchInProgress.current[component] = false;
+      }, 100);
     }
   }, [isPublicMode, token, state.systemInfo, logDebug]);
 
@@ -502,6 +544,14 @@ export function useSystemInfo({
       logDebug('Auto-fetching on mount');
       fetchSystemInfo(true);
     }
+
+    // Clean up refs on unmount
+    return () => {
+      fetchInProgressRef.current = false;
+      Object.keys(componentFetchInProgress.current).forEach(key => {
+        componentFetchInProgress.current[key as SystemInfoComponentKey] = false;
+      });
+    };
   }, [autoFetch, fetchSystemInfo, logDebug]);
 
   return {

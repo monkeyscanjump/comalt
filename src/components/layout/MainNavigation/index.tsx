@@ -1,42 +1,62 @@
 "use client";
 
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, memo } from 'react';
 import Link from 'next/link';
 import { useNavigation } from '@/contexts/navigation/NavigationContext';
 import { FiMoreHorizontal, FiChevronDown } from 'react-icons/fi';
 import styles from './MainNavigation.module.css';
 
-// Type guard function to check if route has a badge property
+/**
+ * Type guard to check if a route has a badge property
+ */
 function hasBadge(route: any): route is { badge: number } {
   return route && typeof route.badge === 'number' && route.badge > 0;
 }
 
-// Helper function to check if route has an icon component
+/**
+ * Helper function to check if a route has an icon component
+ */
 function hasIcon(route: any): boolean {
   return route && typeof route.icon !== 'undefined';
 }
 
-export function MainNavigation() {
+/**
+ * Main Navigation component that handles responsive tab display with overflow menu
+ * Automatically adjusts visible tabs based on available space
+ */
+function MainNavigationComponent() {
   const { routes, isRouteActive } = useNavigation();
   const [activeTabPosition, setActiveTabPosition] = useState({ left: 0, width: 0 });
-  const navRef = useRef<HTMLElement>(null);
-  const activeTabRef = useRef<HTMLAnchorElement>(null);
-  const tabsContainerRef = useRef<HTMLDivElement>(null);
   const [overflowingTabs, setOverflowingTabs] = useState<typeof routes>([]);
   const [visibleTabs, setVisibleTabs] = useState<typeof routes>([]);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+
+  // DOM refs
+  const navRef = useRef<HTMLElement>(null);
+  const activeTabRef = useRef<HTMLAnchorElement>(null);
+  const tabsContainerRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const moreButtonRef = useRef<HTMLButtonElement>(null);
+
+  // State tracking refs
   const lastWidthRef = useRef<number>(0);
   const initializingRef = useRef<boolean>(true);
   const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hasSetTabsRef = useRef(false);
+  const prevVisibleTabsRef = useRef<string>('');
 
-  // Filter and sort navigation items
-  const navItems = routes
-    .filter(route => route.showInNav)
-    .sort((a, b) => a.order - b.order);
+  /**
+   * Filter and sort navigation items
+   */
+  const navItems = React.useMemo(() => {
+    return routes
+      .filter(route => route.showInNav)
+      .sort((a, b) => a.order - b.order);
+  }, [routes]);
 
-  // Update indicator when active tab changes
+  /**
+   * Updates the active tab indicator position
+   */
   const updateActiveIndicator = useCallback(() => {
     if (activeTabRef.current && navRef.current) {
       const tabRect = activeTabRef.current.getBoundingClientRect();
@@ -49,120 +69,125 @@ export function MainNavigation() {
     }
   }, []);
 
-  // Check for overflowing tabs
+  /**
+   * Calculates which tabs should be visible and which should be in the overflow menu
+   * Uses DOM measurement to determine how many tabs fit in the available space
+   */
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const checkForOverflow = useCallback(() => {
     if (!navRef.current || !tabsContainerRef.current || navItems.length === 0) return;
 
     const container = navRef.current;
     const containerWidth = container.clientWidth;
 
-    // Don't process if container is too small during initial layout
     if (containerWidth < 50) return;
 
-    // Track if we're growing or shrinking
-    const isGrowing = containerWidth > lastWidthRef.current;
     lastWidthRef.current = containerWidth;
 
-    // If growing, check if we can fit all tabs
-    if (isGrowing && overflowingTabs.length > 0) {
-      // Check if all tabs would fit
-      const tempDiv = document.createElement('div');
-      tempDiv.style.cssText = 'position:absolute;visibility:hidden;display:flex;';
-      tempDiv.className = styles.tabsContainer;
-      document.body.appendChild(tempDiv);
+    const tempDiv = document.createElement('div');
+    tempDiv.style.cssText = 'position:absolute;visibility:hidden;display:flex;';
+    tempDiv.className = styles.tabsContainer;
+    document.body.appendChild(tempDiv);
 
-      navItems.forEach(item => {
-        const tabEl = document.createElement('a');
-        tabEl.className = styles.tab;
-        tabEl.innerHTML = `<span class="${styles.tabText}">${item.title}</span>`;
-        if (typeof item.icon !== 'undefined') { // Fixed icon check
-          tabEl.innerHTML = `<span class="${styles.tabIcon}"></span>` + tabEl.innerHTML;
-        }
-        tempDiv.appendChild(tabEl);
-      });
-
-      const allTabsWidth = tempDiv.offsetWidth;
-      document.body.removeChild(tempDiv);
-
-      // If all tabs fit, show them all
-      if (allTabsWidth <= containerWidth - 20) { // 20px buffer
-        setVisibleTabs(navItems);
-        setOverflowingTabs([]);
-        return;
+    navItems.forEach(item => {
+      const tabEl = document.createElement('a');
+      tabEl.className = styles.tab;
+      tabEl.innerHTML = `<span class="${styles.tabText}">${item.title}</span>`;
+      if (typeof item.icon !== 'undefined') {
+        tabEl.innerHTML = `<span class="${styles.tabIcon}"></span>` + tabEl.innerHTML;
       }
-    }
+      tempDiv.appendChild(tabEl);
+    });
 
-    // Calculate how many tabs fit with the More dropdown
-    const moreButtonWidth = moreButtonRef.current ? moreButtonRef.current.offsetWidth : 80;
-    const availableWidth = containerWidth - moreButtonWidth - 10; // 10px buffer
+    const allTabsWidth = tempDiv.offsetWidth;
+    document.body.removeChild(tempDiv);
 
-    let visibleCount = 0;
-    let currentWidth = 0;
+    let newVisibleTabs: typeof routes;
+    let newOverflowingTabs: typeof routes;
 
-    // Get tab elements or create temp tabs for measurement
-    const tabElements = Array.from(tabsContainerRef.current.querySelectorAll(`.${styles.tab}`));
+    if (allTabsWidth <= containerWidth - 20) {
+      newVisibleTabs = navItems;
+      newOverflowingTabs = [];
+    } else {
+      const moreButtonWidth = moreButtonRef.current ? moreButtonRef.current.offsetWidth : 80;
+      const availableWidth = containerWidth - moreButtonWidth - 10;
 
-    if (tabElements.length === 0 && navItems.length > 0) {
-      // Create temporary elements to measure
-      const tempDiv = document.createElement('div');
-      tempDiv.style.cssText = 'position:absolute;visibility:hidden;';
-      tempDiv.className = styles.tabsContainer;
-      document.body.appendChild(tempDiv);
+      let visibleCount = 0;
+      let currentWidth = 0;
+
+      const tempDiv2 = document.createElement('div');
+      tempDiv2.style.cssText = 'position:absolute;visibility:hidden;';
+      tempDiv2.className = styles.tabsContainer;
+      document.body.appendChild(tempDiv2);
 
       const tempTabs = navItems.map(item => {
         const tabEl = document.createElement('a');
         tabEl.className = styles.tab;
         tabEl.innerHTML = `<span class="${styles.tabText}">${item.title}</span>`;
-        if (typeof item.icon !== 'undefined') { // Fixed icon check
+        if (typeof item.icon !== 'undefined') {
           tabEl.innerHTML = `<span class="${styles.tabIcon}"></span>` + tabEl.innerHTML;
         }
-        tempDiv.appendChild(tabEl);
+        tempDiv2.appendChild(tabEl);
         return tabEl;
       });
 
-      // Measure each tab
       for (let i = 0; i < tempTabs.length; i++) {
-        const tabWidth = tempTabs[i].offsetWidth + 8; // 8px for gap
-        if (currentWidth + tabWidth > availableWidth) break;
+        const tabWidth = tempTabs[i].offsetWidth + 8;
+
+        if (currentWidth + tabWidth > availableWidth) {
+          break;
+        }
+
         currentWidth += tabWidth;
         visibleCount++;
       }
 
-      document.body.removeChild(tempDiv);
-    } else {
-      // Use existing tabs for measurement
-      for (let i = 0; i < tabElements.length && i < navItems.length; i++) {
-        const tabWidth = (tabElements[i] as HTMLElement).offsetWidth + 8; // 8px for gap
-        if (currentWidth + tabWidth > availableWidth) break;
-        currentWidth += tabWidth;
-        visibleCount++;
+      document.body.removeChild(tempDiv2);
+
+      visibleCount = Math.max(1, Math.min(visibleCount, navItems.length));
+
+      const MIN_ITEMS_IN_DROPDOWN = 2;
+      if (visibleCount >= 1 &&
+          navItems.length - visibleCount > 0 &&
+          navItems.length - visibleCount < MIN_ITEMS_IN_DROPDOWN) {
+        visibleCount = Math.max(1, navItems.length - MIN_ITEMS_IN_DROPDOWN);
       }
+
+      newVisibleTabs = navItems.slice(0, visibleCount);
+      newOverflowingTabs = navItems.slice(visibleCount);
     }
 
-    // Ensure at least one tab is visible
-    visibleCount = Math.max(1, Math.min(visibleCount, navItems.length));
-
-    // Create new tab arrays
-    const newVisibleTabs = navItems.slice(0, visibleCount);
-    const newOverflowingTabs = navItems.slice(visibleCount);
-
-    // Only update if tabs have changed
-    const visiblePathsStr = JSON.stringify(visibleTabs.map(t => t.path));
     const newVisiblePathsStr = JSON.stringify(newVisibleTabs.map(t => t.path));
+    const currentVisiblePathsStr = JSON.stringify(visibleTabs.map(t => t.path));
+    const currentOverflowPathsStr = JSON.stringify(overflowingTabs.map(t => t.path));
+    const newOverflowPathsStr = JSON.stringify(newOverflowingTabs.map(t => t.path));
 
-    if (visiblePathsStr !== newVisiblePathsStr) {
-      setVisibleTabs(newVisibleTabs);
-      setOverflowingTabs(newOverflowingTabs);
+    if (currentVisiblePathsStr !== newVisiblePathsStr ||
+        currentOverflowPathsStr !== newOverflowPathsStr) {
+
+      prevVisibleTabsRef.current = newVisiblePathsStr;
+
+      if (currentVisiblePathsStr !== newVisiblePathsStr) {
+        setVisibleTabs(newVisibleTabs);
+      }
+
+      if (currentOverflowPathsStr !== newOverflowPathsStr) {
+        setOverflowingTabs(newOverflowingTabs);
+      }
     }
-  }, [navItems, overflowingTabs.length, visibleTabs]);
+    // eslint-disable-next-line
+  }, [navItems]);
 
-  // Initialize tabs on mount
+  /**
+   * Initialize tabs on mount
+   */
   useEffect(() => {
-    if (navItems.length > 0 && initializingRef.current) {
+    if (navItems.length > 0 && !hasSetTabsRef.current) {
+      hasSetTabsRef.current = true;
       setVisibleTabs(navItems);
       setOverflowingTabs([]);
+      prevVisibleTabsRef.current = JSON.stringify(navItems.map(t => t.path));
 
-      // Wait for DOM to be ready
       requestAnimationFrame(() => {
         if (navRef.current) {
           lastWidthRef.current = navRef.current.clientWidth;
@@ -173,7 +198,9 @@ export function MainNavigation() {
     }
   }, [navItems, checkForOverflow]);
 
-  // Close dropdown when clicking outside
+  /**
+   * Handle clicks outside the dropdown to close it
+   */
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownOpen &&
@@ -191,7 +218,9 @@ export function MainNavigation() {
     };
   }, [dropdownOpen]);
 
-  // Set up resize observer for container
+  /**
+   * Set up resize handling to recheck tab overflow
+   */
   useEffect(() => {
     if (!navRef.current) return;
 
@@ -206,38 +235,33 @@ export function MainNavigation() {
       }, 100);
     };
 
-    // Set up ResizeObserver
     const resizeObserver = new ResizeObserver(handleResize);
     resizeObserver.observe(navRef.current);
-
-    // Also handle window resize and orientation change
     window.addEventListener('resize', handleResize);
-    window.addEventListener('orientationchange', handleResize);
 
     return () => {
       resizeObserver.disconnect();
       window.removeEventListener('resize', handleResize);
-      window.removeEventListener('orientationchange', handleResize);
-
       if (resizeTimeoutRef.current) {
         clearTimeout(resizeTimeoutRef.current);
       }
     };
   }, [checkForOverflow, updateActiveIndicator]);
 
-  // Update indicator when tabs change or active route changes
+  /**
+   * Update the active indicator when tabs or active route changes
+   */
   useEffect(() => {
-    if (!initializingRef.current && activeTabRef.current) {
-      requestAnimationFrame(updateActiveIndicator);
-    }
+    if (initializingRef.current) return;
+
+    const animationId = requestAnimationFrame(updateActiveIndicator);
+    return () => cancelAnimationFrame(animationId);
   }, [visibleTabs, isRouteActive, updateActiveIndicator]);
 
-  // No tabs to render
   if (navItems.length === 0) {
     return null;
   }
 
-  // Check if active route is in overflow
   const isActiveInOverflow = overflowingTabs.some(route => isRouteActive(route.path));
 
   return (
@@ -324,3 +348,6 @@ export function MainNavigation() {
     </nav>
   );
 }
+
+// Memoize the component to prevent unnecessary re-renders
+export const MainNavigation = memo(MainNavigationComponent);

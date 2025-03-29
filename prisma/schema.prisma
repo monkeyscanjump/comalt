@@ -42,3 +42,16 @@ model AppPackage {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 }
+
+model Device {
+  id          String    @id @default(cuid())
+  name        String
+  ipAddress   String
+  port        Int       @default(3000)
+  apiKey      String?   // For secure device-to-device communication
+  isActive    Boolean   @default(true)
+  isMain      Boolean   @default(false)  // Flag for the main device
+  lastSeen    DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}

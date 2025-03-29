@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { usePathname } from 'next/navigation';
 import { discoverPages } from '@/utils/pageDiscovery';
 import { RouteInfo } from '@/config/routes';
@@ -31,8 +31,20 @@ const navigationState = {
  * Provider component that manages application navigation state and discovery
  */
 export function NavigationProvider({ children }: { children: React.ReactNode }) {
-  const [routes, setRoutesState] = useState<RouteInfo[]>(navigationState.routes);
+  // Use a ref to track render causes
+  const debugRef = React.useRef({ renders: 0, lastPathname: '' });
+
+  const [routes, setRoutesState] = useState<RouteInfo[]>(() => navigationState.routes);
   const pathname = usePathname() || '/';
+
+  // Debug render causes
+  if (process.env.NODE_ENV === 'development') {
+    debugRef.current.renders++;
+    if (debugRef.current.lastPathname !== pathname) {
+      console.log(`[NavigationProvider] Pathname changed: ${debugRef.current.lastPathname} -> ${pathname}`);
+      debugRef.current.lastPathname = pathname;
+    }
+  }
 
   /**
    * Set routes with order enforcement and update global state
@@ -42,6 +54,7 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
     const sortedRoutes = [...newRoutes].sort((a, b) => a.order - b.order);
 
     // Check if anything actually changed before updating state
+    // Use a deep comparison by serializing to JSON
     const currentJSON = JSON.stringify(navigationState.routes);
     const newJSON = JSON.stringify(sortedRoutes);
 
@@ -51,6 +64,8 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
 
     // Update both component state and global state
     navigationState.routes = sortedRoutes;
+
+    // Use functional state update to ensure we're working with the latest state
     setRoutesState(sortedRoutes);
 
     // Store sorted routes in session storage for stability on refresh
@@ -69,6 +84,7 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
 
   /**
    * Determines if a given route path is currently active
+   * This is memoized based on the current pathname to prevent unnecessary recalculations
    */
   const isRouteActive = useCallback((path: string): boolean => {
     if (path === '/' && pathname === '/') return true;
@@ -93,6 +109,7 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
         (routeInfo.order !== undefined && routeInfo.order !== existingRoute.order) ||
         (routeInfo.showInNav !== undefined && routeInfo.showInNav !== existingRoute.showInNav);
 
+      // Skip update if nothing changed
       if (!hasChanges) {
         return;
       }
@@ -131,11 +148,15 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
 
   /**
    * Initialize navigation with discovered routes
+   * This effect should only run once at mount
    */
   useEffect(() => {
+    // Flag to prevent double initialization
+    let isActive = true;
+
     const loadOrDiscoverRoutes = async () => {
-      // Skip if already initialized
-      if (navigationState.initialized) {
+      // Skip if already initialized or if component unmounted
+      if (navigationState.initialized || !isActive) {
         return;
       }
 
@@ -166,35 +187,44 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
         return page;
       });
 
-      // Update state with sorted pages
-      setRoutes(pagesWithOrders);
+      // Only update if component is still mounted
+      if (isActive) {
+        // Update state with sorted pages
+        setRoutes(pagesWithOrders);
 
-      // Mark as initialized
-      navigationState.initialized = true;
+        // Mark as initialized
+        navigationState.initialized = true;
 
-      // Process any pending updates
-      if (navigationState.pendingUpdates.length > 0) {
-        const updates = [...navigationState.pendingUpdates];
-        navigationState.pendingUpdates = [];
+        // Process any pending updates
+        if (navigationState.pendingUpdates.length > 0) {
+          const updates = [...navigationState.pendingUpdates];
+          navigationState.pendingUpdates = [];
 
-        updates.forEach(update => {
-          updateRouteInfoInternal(update);
-        });
+          updates.forEach(update => {
+            updateRouteInfoInternal(update);
+          });
+        }
       }
     };
 
     loadOrDiscoverRoutes();
-  }, [setRoutes, updateRouteInfoInternal]);
+
+    // Cleanup
+    return () => {
+      isActive = false;
+    };
+  }, []); // Empty dependency array - should only run once
+
+  // Memoize the context value to prevent unnecessary re-renders
+  const contextValue = useMemo(() => ({
+    routes,
+    currentPath: pathname,
+    updateRouteInfo,
+    isRouteActive,
+  }), [routes, pathname, updateRouteInfo, isRouteActive]);
 
   return (
-    <NavigationContext.Provider
-      value={{
-        routes,
-        currentPath: pathname,
-        updateRouteInfo,
-        isRouteActive,
-      }}
-    >
+    <NavigationContext.Provider value={contextValue}>
       {children}
     </NavigationContext.Provider>
   );

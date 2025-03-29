@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import AuthContext from './AuthContext';
 import { WalletService } from './WalletService';
 import { config } from '@/config';
@@ -65,11 +65,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [wasSignatureRejected, setWasSignatureRejected] = useState(false);
   const [isRequestingSignature, setIsRequestingSignature] = useState(false);
 
-  // Public mode detection - we'll use the sync version for initialization but update with async later
-  const isPublicMode = !hasWhitelistedAddresses();
+  // Public mode state - memoize to prevent unnecessary updates
+  const [publicMode, setPublicMode] = useState(() => !hasWhitelistedAddresses());
 
-  // Calculate derived states
-  const isWalletConnected = !!selectedAccount || !!walletAddress;
+  // Memoize derived states
+  const isPublicMode = useMemo(() => publicMode, [publicMode]);
+  const isWalletConnected = useMemo(() =>
+    !!selectedAccount || !!walletAddress,
+    [selectedAccount, walletAddress]
+  );
 
   const appName = useEnv('APP_NAME', 'comAlt');
 
@@ -120,13 +124,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       });
     }
 
-    // Reset all auth states
+    // Reset all auth states - batch updates to minimize rerenders
     setSelectedAccount(null);
     setWalletAddress(null);
+
+    // Batch related state updates together
     setIsAuthenticated(false);
     setIsAllowed(false);
     setUser(null);
     setToken(null);
+
+    // Reset signature and token states
     setWasSignatureRejected(false);
     setIsTokenExpired(false);  // Clear local token expiration state
     setTokenExpired(false);    // Clear global token expiration state
@@ -151,10 +159,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const initAuth = async () => {
       try {
         // First check if we're in public mode - this will populate the cache
-        await hasWhitelistedAddressesAsync();
+        const isPublic = await hasWhitelistedAddressesAsync();
+        setPublicMode(!isPublic);
 
         // If in public mode, don't restore auth state
-        if (isPublicMode) {
+        if (!isPublic) {
           setIsLoading(false);
           return;
         }
@@ -270,12 +279,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     initAuth();
-  }, [isPublicMode, logout]);
+  }, [logout]);
 
   /**
    * Connect to wallet extension and get available accounts
    */
-  const connect = async (): Promise<boolean> => {
+  const connect = useCallback(async (): Promise<boolean> => {
     setIsConnecting(true);
     setError(null);
 
@@ -313,12 +322,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } finally {
       setIsConnecting(false);
     }
-  };
+  }, []);
 
   /**
    * Select an account from the wallet
    */
-  const selectAccount = async (account: InjectedAccountWithMeta): Promise<void> => {
+  const selectAccount = useCallback(async (account: InjectedAccountWithMeta): Promise<void> => {
     // Update state with selected account
     setSelectedAccount(account);
     setWalletAddress(account.address);
@@ -346,7 +355,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Also reset token expiration state (both local and global)
     setIsTokenExpired(false);
     setTokenExpired(false);
-  };
+  }, []);
 
   /**
    * Sign a message with the selected account
@@ -371,7 +380,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       throw err;
     }
-  }, [selectedAccount, walletAddress, setWasSignatureRejected]);
+  }, [selectedAccount, walletAddress]);
 
   /**
    * Request a signature for authentication
@@ -495,7 +504,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   /**
    * Refresh authentication token
    */
-  const refreshAuthToken = async (): Promise<boolean> => {
+  const refreshAuthToken = useCallback(async (): Promise<boolean> => {
     if (!walletAddress || !token) {
       console.log('[Auth] Cannot refresh: missing auth data', {
         hasWalletAddress: !!walletAddress, hasToken: !!token
@@ -574,59 +583,99 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       return false;
     }
-  };
+  }, [token, walletAddress, logout]);
 
   /**
    * Reset signature rejection state
    */
-  const resetRejectionState = () => {
+  const resetRejectionState = useCallback(() => {
     setWasSignatureRejected(false);
-  };
+  }, []);
+
+  // Memoize the context value to prevent unnecessary re-renders
+  const contextValue = useMemo(() => ({
+    // Account states
+    walletAddress,
+    accounts,
+    selectedAccount,
+
+    // UI states
+    error,
+    showAccountSelector,
+    setShowAccountSelector,
+
+    // User data
+    user,
+    token,
+
+    // Core methods
+    logout,
+    connect,
+    selectAccount,
+    signMessage,
+    refreshAuthToken,
+    requestSignature,
+
+    // Signature states
+    wasSignatureRejected,
+    isRequestingSignature,
+    resetRejectionState,
+
+    // Derived states
+    isPublicMode,
+    isWalletConnected,
+    isAuthenticated,
+    isLoading,
+    isAllowed,
+    isConnecting,
+    isCheckingAllowlist,
+
+    // Token expiration state
+    handleApiError,
+    isTokenExpired
+  }), [
+    // Account states
+    walletAddress,
+    accounts,
+    selectedAccount,
+
+    // UI states
+    error,
+    showAccountSelector,
+
+    // User data
+    user,
+    token,
+
+    // Core methods (already memoized with useCallback)
+    logout,
+    connect,
+    selectAccount,
+    signMessage,
+    refreshAuthToken,
+    requestSignature,
+    resetRejectionState,
+
+    // Signature states
+    wasSignatureRejected,
+    isRequestingSignature,
+
+    // Derived states
+    isPublicMode,
+    isWalletConnected,
+    isAuthenticated,
+    isLoading,
+    isAllowed,
+    isConnecting,
+    isCheckingAllowlist,
+
+    // Token expiration state
+    handleApiError,
+    isTokenExpired
+  ]);
 
   return (
-    <AuthContext.Provider
-      value={{
-        // Account states
-        walletAddress,
-        accounts,
-        selectedAccount,
-
-        // UI states
-        error,
-        showAccountSelector,
-        setShowAccountSelector,
-
-        // User data
-        user,
-        token,
-
-        // Core methods
-        logout,
-        connect,
-        selectAccount,
-        signMessage,
-        refreshAuthToken,
-        requestSignature,
-
-        // Signature states
-        wasSignatureRejected,
-        isRequestingSignature,
-        resetRejectionState,
-
-        // Derived states
-        isPublicMode,
-        isWalletConnected,
-        isAuthenticated,
-        isLoading,
-        isAllowed,
-        isConnecting,
-        isCheckingAllowlist,
-
-        // Token expiration state
-        handleApiError,
-        isTokenExpired
-      }}
-    >
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

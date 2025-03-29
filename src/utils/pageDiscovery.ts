@@ -1,5 +1,5 @@
 import { IconType } from 'react-icons';
-import { FaHome, FaCog, FaUser, FaInfoCircle, FaFileAlt } from 'react-icons/fa';
+import { FaHome, FaCog, FaUser, FaInfoCircle, FaFileAlt, FaDesktop } from 'react-icons/fa';
 import { FiPackage } from 'react-icons/fi';
 
 // Map of page paths to their metadata
@@ -20,6 +20,12 @@ const PAGE_REGISTRY: Record<string, {
     title: 'Packages',
     icon: FiPackage,
     order: 2,
+    showInNav: true
+  },
+  '/devices': {
+    title: 'Devices',
+    icon: FaDesktop,
+    order: 3,
     showInNav: true
   },
   // Add more pages here - they'll automatically appear in navigation
@@ -64,6 +70,7 @@ export function getIconForPath(path: string): IconType {
   if (normalizedPath === '/') return FaHome;
   if (normalizedPath.includes('packages')) return FiPackage;
   if (normalizedPath.includes('settings')) return FaCog;
+  if (normalizedPath.includes('devices')) return FaDesktop;
   if (normalizedPath.includes('user') || normalizedPath.includes('account')) return FaUser;
   if (normalizedPath.includes('about')) return FaInfoCircle;
 

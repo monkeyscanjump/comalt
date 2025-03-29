@@ -3,13 +3,13 @@
  */
 
 // System information components that can be fetched individually
-export type SystemInfoComponentKey = 'memory' | 'storage' | 'network' | 'processes';
+export type SystemInfoComponentKey = 'memory' | 'storage' | 'network' | 'processes' | 'docker';
 
 // Main system information interface
 export interface SystemInfo {
   memory?: SystemMemory;
   os?: SystemOs;
-  cpu?: SystemCpu;
+  cpu?: SystemCpu | SystemCpu[];
   disks?: SystemDisk[];
   network?: SystemNetworkInterface[];
   graphics?: SystemGraphics[];
@@ -59,6 +59,7 @@ export interface SystemCpu {
     l2?: string;
     l3?: string;
   };
+  socket?: number;
 }
 
 // Storage/disk information

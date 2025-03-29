@@ -4,6 +4,7 @@ import React, { useContext, useEffect, useState } from 'react';
 import AuthContext from '@/contexts/auth/AuthContext';
 import { LoadingState } from '@/components/LoadingState';
 import { FiRefreshCw, FiServer, FiSettings, FiAlertTriangle } from 'react-icons/fi';
+import pageStyles from '@/styles/pages.module.css';
 import styles from './page.module.css';
 
 // Import our modular components
@@ -27,19 +28,16 @@ import { SystemInfoComponentKey } from '@/types/systemInfo';
 import { PageWrapper } from '@/components/layout/PageWrapper';
 
 export default function Dashboard() {
+  // All the hooks and logic remain unchanged
   const auth = useContext(AuthContext);
   const [showSettings, setShowSettings] = useState(false);
   const [loadingTimeout, setLoadingTimeout] = useState(false);
-
-  // Debug logging to help diagnose state issues
-  console.log('[Dashboard] Render with auth:', !!auth);
 
   if (!auth) {
     throw new Error('Dashboard must be used within AuthProvider');
   }
 
   const { token, isPublicMode } = auth;
-  console.log('[Dashboard] Auth state:', { hasToken: !!token, isPublicMode });
 
   // Load user preferences
   const {
@@ -90,15 +88,6 @@ export default function Dashboard() {
     };
   }, [loading, displayData, loadingTimeout]);
 
-  // Debug state logging
-  console.log('[Dashboard] Render state:', {
-    loading,
-    hasData: !!displayData,
-    loadingTimeout,
-    error,
-    lastRefreshTime: lastRefreshTime ? new Date(lastRefreshTime).toLocaleTimeString() : null
-  });
-
   // Manage collapsible sections
   const {
     collapsedSections,
@@ -139,10 +128,10 @@ export default function Dashboard() {
   if (loading && !displayData) {
     return (
       <PageWrapper title="Dashboard" showInNav={true} order={1}>
-        <div className={styles.container}>
-          <div className={styles.header}>
-            <h1 className={styles.title}>
-              <FiServer className={styles.titleIcon} />
+        <div className={pageStyles.container}>
+          <div className={pageStyles.header}>
+            <h1 className={pageStyles.title}>
+              <FiServer className={pageStyles.titleIcon} />
               System Dashboard
             </h1>
           </div>
@@ -151,18 +140,18 @@ export default function Dashboard() {
 
           {/* Show error or timeout message */}
           {(error || loadingTimeout) && (
-            <div className={styles.errorBanner}>
-              <div className={styles.errorContent}>
-                <FiAlertTriangle className={styles.errorIcon} />
-                <div className={styles.errorMessage}>
-                  <p className={styles.errorText}>
+            <div className={pageStyles.error}>
+              <div className={pageStyles.errorContent}>
+                <FiAlertTriangle className={pageStyles.errorIcon} />
+                <div className={pageStyles.errorMessage}>
+                  <p className={pageStyles.errorText}>
                     {error || "Loading is taking longer than expected. The server might be busy or starting up."}
                   </p>
                 </div>
               </div>
               <button
                 onClick={handleRetry}
-                className={styles.retryButton}
+                className={pageStyles.retryButton}
                 aria-label="Retry"
               >
                 Try Again
@@ -178,37 +167,37 @@ export default function Dashboard() {
 
   return (
     <PageWrapper title="Dashboard" showInNav={true} order={1}>
-      <div className={styles.container}>
+      <div className={pageStyles.container}>
         {/* Header with controls */}
-        <div className={styles.header}>
-          <div className={styles.titleContainer}>
-            <h1 className={styles.title}>
-              <FiServer className={styles.titleIcon} />
+        <div className={pageStyles.header}>
+          <div className={pageStyles.titleContainer}>
+            <h1 className={pageStyles.title}>
+              <FiServer className={pageStyles.titleIcon} />
               System Dashboard
             </h1>
             {lastRefreshTime && (
-              <span className={styles.lastRefresh}>
+              <span className={pageStyles.subtitle}>
                 Last updated: {new Date(lastRefreshTime).toLocaleTimeString()}
               </span>
             )}
           </div>
 
-          <div className={styles.controls}>
+          <div className={pageStyles.actions}>
             <button
               onClick={() => setShowSettings(!showSettings)}
-              className={styles.buttonSecondary}
+              className={pageStyles.buttonSecondary}
               title="Dashboard settings"
             >
-              <FiSettings className={styles.buttonIconLeft} />
+              <FiSettings className={pageStyles.buttonIconLeft} />
               Settings
             </button>
 
             <button
               onClick={() => fetchSystemInfo(false)}
-              className={styles.buttonPrimary}
+              className={pageStyles.buttonPrimary}
               disabled={isAnyRefreshInProgress}
             >
-              <FiRefreshCw className={`${styles.buttonIconLeft} ${isAnyRefreshInProgress ? styles.spinning : ''}`} />
+              <FiRefreshCw className={`${pageStyles.buttonIconLeft} ${isAnyRefreshInProgress ? pageStyles.spinning : ''}`} />
               {isAnyRefreshInProgress ? 'Refreshing...' : 'Refresh All'}
             </button>
           </div>
@@ -216,17 +205,17 @@ export default function Dashboard() {
 
         {/* Error message at page top */}
         {error && (
-          <div className={styles.errorBanner}>
-            <div className={styles.errorContent}>
-              <FiAlertTriangle className={styles.errorIcon} />
-              <div className={styles.errorMessage}>
-                <p className={styles.errorText}>{error}</p>
-                <p className={styles.errorHint}>There was a problem updating the dashboard data. Previous data is still shown below.</p>
+          <div className={pageStyles.error}>
+            <div className={pageStyles.errorContent}>
+              <FiAlertTriangle className={pageStyles.errorIcon} />
+              <div className={pageStyles.errorMessage}>
+                <p className={pageStyles.errorText}>{error}</p>
+                <p className={pageStyles.errorHint}>There was a problem updating the dashboard data. Previous data is still shown below.</p>
               </div>
             </div>
             <button
               onClick={() => retry()}
-              className={styles.retryButton}
+              className={pageStyles.retryButton}
               aria-label="Retry"
             >
               Try Again
@@ -253,7 +242,7 @@ export default function Dashboard() {
         {/* Main dashboard content */}
         <div className={`${styles.contentWrapper} ${isRefreshing ? styles.refreshing : ''}`}>
           {/* Main grid for system info cards */}
-          <div className={styles.grid}>
+          <div className={pageStyles.grid}>
             {/* Memory Information (only if visible in preferences) */}
             {visibleSections.memory && (
               <MemorySection

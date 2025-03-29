@@ -16,16 +16,19 @@ export const GraphicsSection: React.FC<GraphicsSectionProps> = ({
   displayMode,
   className
 }) => {
+  // Determine full width based on GPU count
+  const gpuCount = graphics?.length || 0;
+  const isFullWidth = gpuCount > 1; // Only use full width if multiple GPUs
+
   // For compact display, just show count and main GPU model
   if (displayMode === 'compact' && graphics && graphics.length > 0) {
-    const gpuCount = graphics.length;
     const mainGpu = graphics[0].model;
 
     return (
       <SectionContainer
         title="Graphics"
         icon={FiMonitor}
-        isFullWidth={true}
+        isFullWidth={isFullWidth}
         isCollapsible={!!onToggleCollapse}
         isCollapsed={isCollapsed}
         onToggleCollapse={onToggleCollapse}
@@ -44,7 +47,7 @@ export const GraphicsSection: React.FC<GraphicsSectionProps> = ({
     <SectionContainer
       title="Graphics"
       icon={FiMonitor}
-      isFullWidth={true}
+      isFullWidth={isFullWidth}
       isCollapsible={!!onToggleCollapse}
       isCollapsed={isCollapsed}
       onToggleCollapse={onToggleCollapse}

@@ -18,6 +18,10 @@ export const StorageSection: React.FC<StorageSectionProps> = ({
   displayMode,
   className
 }) => {
+  // Determine full width based on disk count - consistent with other components
+  const diskCount = disks?.length || 0;
+  const isFullWidth = diskCount > 1; // Only use full width if more than 1 disk
+
   // For compact display, show minimal information
   if (displayMode === 'compact' && disks && disks.length > 0) {
     const totalDisks = disks.length;
@@ -30,7 +34,7 @@ export const StorageSection: React.FC<StorageSectionProps> = ({
       <SectionContainer
         title="Storage"
         icon={FiHardDrive}
-        isFullWidth={true}
+        isFullWidth={isFullWidth}
         isRefreshing={isRefreshing}
         canRefresh={!!onRefresh}
         isCollapsible={!!onToggleCollapse}
@@ -51,7 +55,7 @@ export const StorageSection: React.FC<StorageSectionProps> = ({
     <SectionContainer
       title="Storage"
       icon={FiHardDrive}
-      isFullWidth={true}
+      isFullWidth={isFullWidth}
       isRefreshing={isRefreshing}
       canRefresh={!!onRefresh}
       isCollapsible={!!onToggleCollapse}

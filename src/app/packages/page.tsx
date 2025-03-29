@@ -5,7 +5,7 @@ import { PageWrapper } from '@/components/layout/PageWrapper';
 import AuthContext from '@/contexts/auth/AuthContext';
 import { LoadingState } from '@/components/LoadingState';
 import { FiPackage, FiRefreshCw, FiAlertTriangle, FiSearch, FiFilter, FiTool } from 'react-icons/fi';
-import styles from '@/app/page.module.css';
+import pageStyles from '@/styles/pages.module.css';
 import packageStyles from './packages.module.css';
 import { Package } from '@/types/packages';
 import { PackageCard } from '@/components/packages/PackageCard';
@@ -336,25 +336,25 @@ export default function PackagesPage() {
 
   return (
     <PageWrapper title="Packages" showInNav={true} order={2}>
-      <div className={styles.container}>
-        <div className={styles.header}>
-          <div className={styles.titleContainer}>
-            <h1 className={styles.title}>
-              <FiPackage className={styles.titleIcon} />
+      <div className={pageStyles.container}>
+        <div className={pageStyles.header}>
+          <div className={pageStyles.titleContainer}>
+            <h1 className={pageStyles.title}>
+              <FiPackage className={pageStyles.titleIcon} />
               Packages
             </h1>
-            <span className={styles.lastRefresh}>
+            <span className={pageStyles.subtitle}>
               Install and manage software packages
             </span>
           </div>
 
-          <div className={styles.controls}>
+          <div className={pageStyles.actions}>
             <button
               onClick={handleRefresh}
-              className={styles.buttonPrimary}
+              className={pageStyles.buttonPrimary}
               disabled={isLoading}
             >
-              <FiRefreshCw className={`${styles.buttonIconLeft} ${isLoading ? styles.spinning : ''}`} />
+              <FiRefreshCw className={`${pageStyles.buttonIconLeft} ${isLoading ? pageStyles.spinning : ''}`} />
               {isLoading ? 'Refreshing...' : 'Refresh'}
             </button>
 
@@ -362,10 +362,10 @@ export default function PackagesPage() {
             {hasInconsistencies && (
               <button
                 onClick={handleRepairDatabase}
-                className={styles.buttonWarning || styles.buttonSecondary}
+                className={pageStyles.buttonWarning}
                 disabled={isRepairing}
               >
-                <FiTool className={styles.buttonIconLeft} />
+                <FiTool className={pageStyles.buttonIconLeft} />
                 {isRepairing ? 'Repairing...' : 'Repair Database'}
               </button>
             )}
@@ -374,11 +374,11 @@ export default function PackagesPage() {
 
         {/* Database inconsistency warning */}
         {hasInconsistencies && (
-          <div className={styles.warningBanner || styles.errorBanner}>
-            <div className={styles.errorContent}>
-              <FiAlertTriangle className={styles.errorIcon} />
-              <div className={styles.errorMessage}>
-                <p className={styles.errorText}>
+          <div className={pageStyles.warningBanner}>
+            <div className={pageStyles.errorContent}>
+              <FiAlertTriangle className={pageStyles.errorIcon} />
+              <div className={pageStyles.errorMessage}>
+                <p className={pageStyles.errorText}>
                   Some packages have installation issues but are still marked as installed.
                   Use the "Repair Database" button to fix these inconsistencies.
                 </p>
@@ -389,16 +389,16 @@ export default function PackagesPage() {
 
         {/* Error display */}
         {error && (
-          <div className={styles.errorBanner}>
-            <div className={styles.errorContent}>
-              <FiAlertTriangle className={styles.errorIcon} />
-              <div className={styles.errorMessage}>
-                <p className={styles.errorText}>{error}</p>
+          <div className={pageStyles.error}>
+            <div className={pageStyles.errorContent}>
+              <FiAlertTriangle className={pageStyles.errorIcon} />
+              <div className={pageStyles.errorMessage}>
+                <p className={pageStyles.errorText}>{error}</p>
               </div>
             </div>
             <button
               onClick={() => setError(null)}
-              className={styles.retryButton || styles.closeButton}
+              className={pageStyles.closeButton}
             >
               Dismiss
             </button>
@@ -406,15 +406,15 @@ export default function PackagesPage() {
         )}
 
         {/* Search and filter */}
-        <div className={packageStyles.filtersContainer}>
-          <div className={packageStyles.searchContainer}>
-            <FiSearch className={packageStyles.searchIcon} />
+        <div className={pageStyles.filtersContainer}>
+          <div className={pageStyles.searchContainer}>
+            <FiSearch className={pageStyles.searchIcon} />
             <input
               type="text"
               placeholder="Search packages..."
               value={searchQuery}
               onChange={handleSearchChange}
-              className={packageStyles.searchInput}
+              className={pageStyles.searchInput}
             />
           </div>
 
@@ -437,7 +437,7 @@ export default function PackagesPage() {
         </div>
 
         {/* Package grid */}
-        <div className={packageStyles.packagesGrid}>
+        <div className={pageStyles.grid}>
           {filteredPackages.map(pkg => (
             <PackageCard
               key={pkg.id}
@@ -450,11 +450,11 @@ export default function PackagesPage() {
           ))}
 
           {filteredPackages.length === 0 && !isLoading && (
-            <div className={packageStyles.noResults}>
+            <div className={pageStyles.noResults}>
               <p>No packages match your search criteria.</p>
               {searchQuery || selectedCategory ? (
                 <button
-                  className={styles.buttonSecondary}
+                  className={pageStyles.buttonSecondary}
                   onClick={() => {
                     setSearchQuery('');
                     setSelectedCategory(null);

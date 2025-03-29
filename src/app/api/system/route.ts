@@ -5,7 +5,9 @@ import os from 'os';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { withApiRoute } from '@/middlewares/withApiRoute';
-// Remove ApiError import and use standard Error with properties
+import path from 'path';
+import fs from 'fs';
+import * as fsPromises from 'fs/promises';
 import type {
   SystemInfo,
   SystemInfoComponentKey,
@@ -16,7 +18,6 @@ import type {
   DockerInfo
 } from '@/types/systemInfo';
 
-// Import specific modules from systeminformation
 import {
   cpu,
   mem,
@@ -28,65 +29,116 @@ import {
 
 const execAsync = promisify(exec);
 
-// Valid component keys
-const VALID_COMPONENTS: SystemInfoComponentKey[] = ['memory', 'storage', 'network', 'processes'];
+const VALID_COMPONENTS: SystemInfoComponentKey[] = ['memory', 'storage', 'network', 'processes', 'docker'];
 
 /**
- * Check Docker installation status
+ * Check Docker installation status and progress
  */
-async function checkDockerStatus(): Promise<DockerInfo> {
-  console.log('[System API] Checking Docker installation status');
+async function checkDockerStatus(wantProgress = false): Promise<DockerInfo | any> {
+  if (wantProgress) {
+    try {
+      const statusFile = path.join(os.tmpdir(), 'docker-install-status.json');
+      if (!fs.existsSync(statusFile)) {
+        return { status: 'unknown' };
+      }
+
+      const status = JSON.parse(await fsPromises.readFile(statusFile, 'utf-8'));
+
+      if (status.status === 'completed' && status.version) {
+        return {
+          status: 'completed',
+          version: status.version,
+          installed: true
+        };
+      }
+
+      if (status.log) {
+        return {
+          status: status.status,
+          log: status.log
+        };
+      }
+
+      if (status.error) {
+        return {
+          status: 'error',
+          error: status.error
+        };
+      }
+
+      return status;
+    } catch (err) {
+      return { status: 'unknown' };
+    }
+  }
 
   try {
-    // Use the existing Docker status API directly
-    console.log('[System API] Calling internal Docker status API');
-
-    const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-    const host = process.env.HOSTNAME || 'localhost';
-    const port = process.env.PORT || '3000';
-    const baseUrl = `${protocol}://${host}:${port}`;
-
-    const dockerStatusUrl = `${baseUrl}/api/docker/status`;
-    console.log(`[System API] Fetching from internal API: ${dockerStatusUrl}`);
-
-    const response = await fetch(dockerStatusUrl, {
-      headers: {
-        'Accept': 'application/json',
-        'X-Internal-Request': 'true'
-      },
-      next: { revalidate: 0 }
+    const { stdout } = await execAsync('docker --version', {
+      timeout: 5000,
+      env: { ...process.env, PATH: process.env.PATH }
     });
 
-    if (!response.ok) {
-      console.error(`[System API] Docker status API responded with status: ${response.status}`);
-      return { installed: false };
-    }
+    return {
+      installed: true,
+      version: stdout.trim()
+    };
+  } catch (primaryErr) {
+    if (process.platform === 'win32') {
+      try {
+        const possiblePaths = [
+          'C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe',
+          'C:\\Program Files\\Docker\\Docker\\Docker for Windows.exe',
+          'C:\\ProgramData\\DockerDesktop\\version-bin\\docker.exe'
+        ];
 
-    const data = await response.json();
-    console.log('[System API] Docker status API response:', data);
+        for (const dockerPath of possiblePaths) {
+          if (fs.existsSync(dockerPath)) {
+            const { stdout } = await execAsync(`"${dockerPath}" --version`, {
+              timeout: 5000
+            });
+
+            return {
+              installed: true,
+              version: stdout.trim(),
+              path: dockerPath
+            };
+          }
+        }
+
+        throw new Error('Docker executable not found in expected locations');
+      } catch (windowsErr) {
+        // Silent fail, continue to next checks
+      }
+    } else {
+      try {
+        if (process.platform === 'linux') {
+          const { stdout: serviceOutput } = await execAsync('systemctl is-active docker', { timeout: 3000 });
+          if (serviceOutput.trim() === 'active') {
+            return {
+              installed: true,
+              version: 'Service active (version check failed)',
+              note: 'Docker service is running but version check failed'
+            };
+          }
+        } else if (process.platform === 'darwin') {
+          const { stdout: appOutput } = await execAsync('ls -la /Applications/Docker.app', { timeout: 3000 });
+          if (appOutput) {
+            return {
+              installed: true,
+              version: 'App installed (version check failed)',
+              note: 'Docker app is installed but version check failed'
+            };
+          }
+        }
+      } catch (serviceErr) {
+        // Silent fail, continue
+      }
+    }
 
     return {
-      installed: data.installed || false,
-      version: data.version || undefined,
-      path: data.path || undefined
+      installed: false,
+      error: primaryErr instanceof Error ? primaryErr.message : 'Failed to execute Docker command'
     };
-  } catch (error) {
-    console.error('[System API] Error fetching Docker status:', error);
-
-    // Fallback implementation
-    try {
-      const { stdout } = await execAsync('docker --version', { timeout: 3000 });
-      const versionMatch = stdout.match(/Docker version ([0-9.]+)/);
-      const version = versionMatch ? versionMatch[1] : 'Unknown';
-
-      return {
-        installed: true,
-        version
-      };
-    } catch (fallbackError) {
-      console.log('[System API] Fallback Docker check also failed:', fallbackError);
-      return { installed: false };
-    }
   }
 }
 
@@ -94,19 +146,12 @@ async function checkDockerStatus(): Promise<DockerInfo> {
  * Main handler for system information API
  */
 const handleSystemRequest = async (request: NextRequest) => {
-  console.log('[System API] Request received:', request.url);
   const startTime = Date.now();
-
-  // Get the component parameter
   const url = new URL(request.url);
   const componentParam = url.searchParams.get('component');
+  const wantProgress = url.searchParams.get('progress') === 'true';
 
-  console.log('[System API] Component parameter:', componentParam || 'none');
-
-  // Validate component parameter if provided
   if (componentParam && !VALID_COMPONENTS.includes(componentParam as SystemInfoComponentKey)) {
-    console.log('[System API] Invalid component:', componentParam);
-    // Use standard Error with properties instead of ApiError
     const error = new Error(`Invalid component specified. Valid components are: ${VALID_COMPONENTS.join(', ')}`);
     (error as any).code = 'INVALID_COMPONENT';
     (error as any).status = 400;
@@ -115,44 +160,47 @@ const handleSystemRequest = async (request: NextRequest) => {
 
   const component = componentParam as SystemInfoComponentKey | null;
 
-  // Initialize response data
+  if (component === 'docker') {
+    try {
+      const dockerInfo = await checkDockerStatus(wantProgress);
+      return createResponse(dockerInfo);
+    } catch (dockerErr) {
+      const error = new Error('Failed to check Docker status');
+      (error as any).code = 'DOCKER_CHECK_ERROR';
+      (error as any).status = 500;
+      throw error;
+    }
+  }
+
   const responseData: Partial<SystemInfo> = {};
 
-  // Check if we're requesting a specific component
   if (component) {
-    console.log(`[System API] Fetching specific component: ${component}`);
     try {
       switch (component) {
         case 'memory': {
-          console.log('[System API] Retrieving memory info');
           const memoryInfo = await mem();
           responseData.memory = formatMemory(memoryInfo);
           break;
         }
 
         case 'storage': {
-          console.log('[System API] Retrieving disk info');
           const diskLayoutInfo = await diskLayout();
           responseData.disks = formatDisks(diskLayoutInfo);
           break;
         }
 
         case 'network': {
-          console.log('[System API] Retrieving network info');
           const networkInterfacesInfo = await networkInterfaces();
           responseData.network = formatNetwork(networkInterfacesInfo);
           break;
         }
 
         case 'processes': {
-          console.log('[System API] Retrieving PM2 processes');
           responseData.pm2Processes = await getPm2Processes();
           break;
         }
       }
     } catch (componentError) {
-      console.error(`[System API] Error fetching ${component} info:`, componentError);
-      // Use standard Error with properties instead of ApiError
       const error = new Error(`Failed to retrieve ${component} information`);
       (error as any).code = `${component.toUpperCase()}_INFO_ERROR`;
       (error as any).status = 500;
@@ -162,14 +210,10 @@ const handleSystemRequest = async (request: NextRequest) => {
       throw error;
     }
 
-    console.log(`[System API] Component ${component} retrieved successfully`);
     return createResponse(responseData);
   }
 
-  // If no specific component requested, fetch all data
-  console.log('[System API] Fetching complete system information');
   try {
-    // Run all data fetching promises in parallel
     const [
       cpuInfo,
       memoryInfo,
@@ -185,11 +229,8 @@ const handleSystemRequest = async (request: NextRequest) => {
       diskLayout(),
       networkInterfaces(),
       osInfo(),
-      checkDockerStatus()
+      checkDockerStatus(false)
     ]);
-
-    console.log('[System API] All system data collected');
-    console.log('[System API] Docker status:', dockerInfo.installed ? 'Installed' : 'Not installed');
 
     // Format CPU cache values
     const formattedCache: SystemCpu['cache'] = {
@@ -199,19 +240,77 @@ const handleSystemRequest = async (request: NextRequest) => {
       l3: cpuInfo.cache?.l3 ? formatCacheSize(cpuInfo.cache.l3) : undefined,
     };
 
-    // Create the complete system info object
-    const systemInfo: SystemInfo = {
-      cpu: {
+    // Handle multi-CPU systems and create appropriate CPU data structure
+    let cpuData: SystemCpu | SystemCpu[];
+
+    const physicalCpuCount = typeof cpuInfo.socket === 'number'
+      ? cpuInfo.socket
+      : (parseInt(String(cpuInfo.socket)) || 1);
+
+    if (physicalCpuCount > 1) {
+      // Create an array of CPU objects for multi-CPU systems
+      cpuData = [];
+      for (let i = 0; i < physicalCpuCount; i++) {
+        const cores = typeof cpuInfo.cores === 'number'
+          ? cpuInfo.cores
+          : (parseInt(String(cpuInfo.cores)) || 1);
+
+        const physicalCores = typeof cpuInfo.physicalCores === 'number'
+          ? cpuInfo.physicalCores
+          : (parseInt(String(cpuInfo.physicalCores)) || 1);
+
+        // Fix 3: Ensure speed is a string
+        const speedStr = typeof cpuInfo.speed === 'number'
+          ? `${cpuInfo.speed} GHz`
+          : (cpuInfo.speed || 'Unknown');
+
+        cpuData.push({
+          manufacturer: cpuInfo.manufacturer,
+          brand: `${cpuInfo.brand} (Socket ${i+1})`,
+          vendor: cpuInfo.vendor || 'N/A',
+          family: cpuInfo.family || 'N/A',
+          model: cpuInfo.model || 'N/A',
+          // Use the fixed numeric values for calculations
+          cores: Math.floor(cores / physicalCpuCount),
+          physicalCores: Math.floor(physicalCores / physicalCpuCount),
+          speed: speedStr,
+          cache: formattedCache,
+          socket: i + 1
+        });
+      }
+    } else {
+      // Single CPU system (the most common case)
+      // Fix 4: Ensure cores and physicalCores are numbers
+      const cores = typeof cpuInfo.cores === 'number'
+        ? cpuInfo.cores
+        : (parseInt(String(cpuInfo.cores)) || 1);
+
+      const physicalCores = typeof cpuInfo.physicalCores === 'number'
+        ? cpuInfo.physicalCores
+        : (parseInt(String(cpuInfo.physicalCores)) || 1);
+
+      // Fix 5: Ensure speed is a string
+      const speedStr = typeof cpuInfo.speed === 'number'
+        ? `${cpuInfo.speed} GHz`
+        : (cpuInfo.speed || 'Unknown');
+
+      cpuData = {
         manufacturer: cpuInfo.manufacturer,
         brand: cpuInfo.brand,
         vendor: cpuInfo.vendor || 'N/A',
         family: cpuInfo.family || 'N/A',
         model: cpuInfo.model || 'N/A',
-        cores: cpuInfo.cores,
-        physicalCores: cpuInfo.physicalCores,
-        speed: `${cpuInfo.speed} GHz`,
-        cache: formattedCache
-      },
+        cores: cores,
+        physicalCores: physicalCores,
+        speed: speedStr,
+        cache: formattedCache,
+        socket: 1
+      };
+    }
+
+    // Create the complete system info object
+    const systemInfo: SystemInfo = {
+      cpu: cpuData, // Now this can be either a single CPU or an array
       memory: formatMemory(memoryInfo),
       graphics: formatGraphics(graphicsInfo),
       disks: formatDisks(diskLayoutInfo),
@@ -229,14 +328,8 @@ const handleSystemRequest = async (request: NextRequest) => {
       docker: dockerInfo
     };
 
-    console.log('[System API] System info prepared successfully');
-    const elapsedTime = Date.now() - startTime;
-    console.log(`[System API] Request completed in ${elapsedTime}ms`);
-
     return createResponse(systemInfo);
   } catch (error) {
-    console.error('[System API] Error fetching complete system information:', error);
-    // Use standard Error with properties instead of ApiError
     const apiError = new Error('Failed to retrieve system information');
     (apiError as any).code = 'SYSTEM_INFO_ERROR';
     (apiError as any).status = 500;
@@ -247,8 +340,9 @@ const handleSystemRequest = async (request: NextRequest) => {
   }
 };
 
-// Export the GET handler with authentication middleware
-// Replace createRouteHandler with withApiRoute
+/**
+ * Export the GET handler with authentication middleware
+ */
 export const GET = withApiRoute(handleSystemRequest, {
   requireAuth: true,
   requireAdmin: true
@@ -260,10 +354,9 @@ export const GET = withApiRoute(handleSystemRequest, {
 function createResponse(data: any) {
   const response = NextResponse.json({
     ...data,
-    _timestamp: Date.now() // Add timestamp to prevent caching
+    _timestamp: Date.now()
   });
 
-  // Completely disable caching
   response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
   response.headers.set('Pragma', 'no-cache');
   response.headers.set('Expires', '0');
@@ -272,7 +365,9 @@ function createResponse(data: any) {
   return response;
 }
 
-// The formatting functions remain the same
+/**
+ * Format memory info to user-friendly values
+ */
 function formatMemory(memoryInfo: any) {
   return {
     total: (memoryInfo.total / (1024 * 1024 * 1024)).toFixed(2) + ' GB',
@@ -282,6 +377,9 @@ function formatMemory(memoryInfo: any) {
   };
 }
 
+/**
+ * Format disk info to user-friendly values
+ */
 function formatDisks(diskLayoutInfo: any[]): SystemDisk[] {
   return diskLayoutInfo.map(disk => ({
     device: disk.device,
@@ -296,6 +394,9 @@ function formatDisks(diskLayoutInfo: any[]): SystemDisk[] {
   }));
 }
 
+/**
+ * Format graphics info to user-friendly values
+ */
 function formatGraphics(graphicsInfo: { controllers: any[] }): SystemGraphics[] {
   return graphicsInfo.controllers.map(gpu => ({
     vendor: gpu.vendor || 'N/A',
@@ -306,6 +407,9 @@ function formatGraphics(graphicsInfo: { controllers: any[] }): SystemGraphics[] 
   }));
 }
 
+/**
+ * Format network info to user-friendly values
+ */
 function formatNetwork(networkInterfacesInfo: any): SystemNetworkInterface[] {
   const networkArray = Array.isArray(networkInterfacesInfo)
     ? networkInterfacesInfo
@@ -326,6 +430,9 @@ function formatNetwork(networkInterfacesInfo: any): SystemNetworkInterface[] {
     }));
 }
 
+/**
+ * Get PM2 process information if available
+ */
 async function getPm2Processes() {
   try {
     const { stdout } = await execAsync('pm2 jlist');
@@ -343,11 +450,13 @@ async function getPm2Processes() {
       createdAt: process.pm2_env?.created_at ? new Date(process.pm2_env.created_at).toISOString() : undefined
     }));
   } catch (error) {
-    console.log('[System API] PM2 not available or not running');
     return [];
   }
 }
 
+/**
+ * Format cache size to user-friendly values
+ */
 function formatCacheSize(sizeInKB: number): string {
   if (!sizeInKB) return 'N/A';
 
@@ -360,6 +469,9 @@ function formatCacheSize(sizeInKB: number): string {
   }
 }
 
+/**
+ * Format uptime to user-friendly values
+ */
 function formatUptime(seconds: number): string {
   const days = Math.floor(seconds / (3600 * 24));
   const hours = Math.floor((seconds % (3600 * 24)) / 3600);

@@ -113,3 +113,4 @@ logs/
 .fuse_hidden*
 .Trash-*
 .nfs*
+prisma/dev.db

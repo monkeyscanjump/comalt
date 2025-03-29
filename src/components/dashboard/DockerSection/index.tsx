@@ -92,7 +92,8 @@ export const DockerSection: React.FC<DockerSectionProps> = ({
       }
 
       try {
-        const response = await fetch('/api/docker/status', {
+        // Use the system API with docker component
+        const response = await fetch('/api/system?component=docker', {
           headers,
           signal: AbortSignal.timeout(5000)
         });
@@ -116,6 +117,7 @@ export const DockerSection: React.FC<DockerSectionProps> = ({
     } catch (err) {
       console.error('Docker check error:', err);
       setDockerInstalled(false);
+      setDockerVersion(null);
       setInstallationStatus('not_started');
       setIsDockerLoading(false);
     }
@@ -198,7 +200,8 @@ export const DockerSection: React.FC<DockerSectionProps> = ({
           headers['Authorization'] = `Bearer ${token}`;
         }
 
-        const response = await fetch('/api/docker/status?progress=true', { headers });
+        // Use system API with docker component and progress parameter
+        const response = await fetch('/api/system?component=docker&progress=true', { headers });
         const data = await response.json();
 
         // Update log if there's new output
