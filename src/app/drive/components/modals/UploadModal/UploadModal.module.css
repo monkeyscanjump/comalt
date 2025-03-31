@@ -1,0 +1,228 @@
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
+  background-color: var(--color-surface);
+  border-radius: 8px;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+  width: 95%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.modalTitle {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+}
+
+.modalIcon {
+  margin-right: 8px;
+  color: var(--color-primary);
+}
+
+.closeButton {
+  background: rgba(0, 0, 0, 0.05);
+  border: none;
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--color-text);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  padding: 0;
+  transition: all 0.2s ease;
+}
+
+.closeButton:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+  color: var(--color-primary);
+}
+
+.closeButton svg {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+
+.modalContent {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.dropZone {
+  border: 2px dashed var(--color-border);
+  border-radius: 8px;
+  padding: 40px 20px;
+  text-align: center;
+  background-color: var(--color-bg-secondary);
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.dropZone.dragging {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary-light, rgba(0, 120, 212, 0.05));
+}
+
+.dropZoneContent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.dropIcon {
+  width: 60px;
+  height: 60px;
+  background-color: var(--color-primary-light, rgba(0, 120, 212, 0.1));
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.dropIcon svg {
+  font-size: 24px;
+  color: var(--color-primary);
+}
+
+.dropTitle {
+  font-size: 1.2rem;
+  font-weight: 500;
+  margin: 0 0 8px 0;
+  color: var(--color-text);
+}
+
+.dropText {
+  color: var(--color-text-secondary);
+  margin: 0 0 24px 0;
+}
+
+.uploadInfo {
+  margin-top: 20px;
+  background-color: var(--color-surface);
+  border-radius: 6px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  max-width: 300px;
+}
+
+.uploadInfoItem {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9rem;
+}
+
+.uploadInfoLabel {
+  color: var(--color-text-secondary);
+}
+
+.uploadInfoValue {
+  font-weight: 500;
+}
+
+.draggedItems {
+  margin-top: 20px;
+  border-top: 1px solid var(--color-border);
+  padding-top: 20px;
+}
+
+.draggedItemsTitle {
+  font-size: 0.9rem;
+  margin: 0 0 12px 0;
+  color: var(--color-text-secondary);
+}
+
+.draggedItemsList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.draggedItem {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  background-color: var(--color-bg-secondary);
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.draggedItem svg {
+  margin-right: 8px;
+  color: var(--color-text-secondary);
+}
+
+.draggedItemName {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-right: 8px;
+}
+
+.draggedItemSize {
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+}
+
+.moreItems {
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+  padding: 8px;
+}
+
+.modalFooter {
+  padding: 16px 20px;
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.uploadButtons {
+  display: flex;
+  gap: 12px;
+}
+
+@media (max-width: 600px) {
+  .uploadButtons {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .uploadButtons button {
+    width: 100%;
+  }
+}

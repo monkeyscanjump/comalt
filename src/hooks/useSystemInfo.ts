@@ -545,12 +545,25 @@ export function useSystemInfo({
       fetchSystemInfo(true);
     }
 
+    // Capture the current ref value when the effect runs
+    // This prevents issues with the ref changing before cleanup
+    const currentFetchInProgressRef = fetchInProgressRef;
+    const currentComponentFetchRef = componentFetchInProgress.current;
+
     // Clean up refs on unmount
     return () => {
-      fetchInProgressRef.current = false;
-      Object.keys(componentFetchInProgress.current).forEach(key => {
-        componentFetchInProgress.current[key as SystemInfoComponentKey] = false;
-      });
+      // Use captured value instead of potentially changed ref.current
+      if (currentFetchInProgressRef) {
+        currentFetchInProgressRef.current = false;
+      }
+
+      // Use captured object instead of potentially changed ref.current
+      if (currentComponentFetchRef) {
+        Object.keys(currentComponentFetchRef).forEach(key => {
+          const typedKey = key as SystemInfoComponentKey;
+          currentComponentFetchRef[typedKey] = false;
+        });
+      }
     };
   }, [autoFetch, fetchSystemInfo, logDebug]);
 

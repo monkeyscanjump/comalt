@@ -9,9 +9,11 @@ export const dynamic = 'force-dynamic';
  */
 export const GET = withApiRoute(async (
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  context: { params?: { path: string[] } }
 ) => {
-  return proxyRequest(request, params.path, 'GET');
+  // Ensure params exists, with fallback if it doesn't
+  const path = context.params?.path || [];
+  return proxyRequest(request, path, 'GET');
 });
 
 /**
@@ -19,9 +21,10 @@ export const GET = withApiRoute(async (
  */
 export const POST = withApiRoute(async (
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  context: { params?: { path: string[] } }
 ) => {
-  return proxyRequest(request, params.path, 'POST');
+  const path = context.params?.path || [];
+  return proxyRequest(request, path, 'POST');
 });
 
 /**
@@ -29,9 +32,10 @@ export const POST = withApiRoute(async (
  */
 export const PUT = withApiRoute(async (
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  context: { params?: { path: string[] } }
 ) => {
-  return proxyRequest(request, params.path, 'PUT');
+  const path = context.params?.path || [];
+  return proxyRequest(request, path, 'PUT');
 });
 
 /**
@@ -39,9 +43,10 @@ export const PUT = withApiRoute(async (
  */
 export const DELETE = withApiRoute(async (
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  context: { params?: { path: string[] } }
 ) => {
-  return proxyRequest(request, params.path, 'DELETE');
+  const path = context.params?.path || [];
+  return proxyRequest(request, path, 'DELETE');
 });
 
 /**
@@ -127,6 +132,9 @@ async function proxyRequest(
     });
   } catch (error) {
     console.error('Proxy error:', error);
+
+    // Get searchParams from the original request URL
+    const { searchParams } = new URL(request.url);
 
     // Check if it's a timeout or connection failure
     if (error instanceof Error &&

@@ -33,6 +33,8 @@ const navigationState = {
 export function NavigationProvider({ children }: { children: React.ReactNode }) {
   // Use a ref to track render causes
   const debugRef = React.useRef({ renders: 0, lastPathname: '' });
+  // Ref to track initialization state to avoid dependency issues
+  const initRef = React.useRef(false);
 
   const [routes, setRoutesState] = useState<RouteInfo[]>(() => navigationState.routes);
   const pathname = usePathname() || '/';
@@ -148,11 +150,17 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
 
   /**
    * Initialize navigation with discovered routes
-   * This effect should only run once at mount
+   * This effect runs only once at mount, but includes proper dependencies
    */
   useEffect(() => {
+    // Skip if already initialized through our ref to ensure it only runs once
+    if (initRef.current) {
+      return;
+    }
+
     // Flag to prevent double initialization
     let isActive = true;
+    initRef.current = true;
 
     const loadOrDiscoverRoutes = async () => {
       // Skip if already initialized or if component unmounted
@@ -213,7 +221,7 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
     return () => {
       isActive = false;
     };
-  }, []); // Empty dependency array - should only run once
+  }, [setRoutes, updateRouteInfoInternal]); // Include dependencies while ensuring it only runs once
 
   // Memoize the context value to prevent unnecessary re-renders
   const contextValue = useMemo(() => ({

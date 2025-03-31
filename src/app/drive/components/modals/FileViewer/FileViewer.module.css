@@ -1,0 +1,354 @@
+.fileViewerOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.fileViewerModal {
+  background-color: var(--color-surface);
+  border-radius: 8px;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+  width: 95%;
+  max-width: 1800px;
+  height: 95vh;
+  max-height: 900px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.fileViewerHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.fileInfo {
+  overflow: hidden;
+}
+
+.fileName {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.folderIcon {
+  margin-right: 8px;
+  color: var(--color-accent);
+}
+
+.fileType {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+}
+
+.fileViewerActions {
+  display: flex;
+  gap: 8px;
+}
+
+.closeButton {
+  background: rgba(0, 0, 0, 0.05);
+  border: none;
+  font-size: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--color-text);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  padding: 0;
+  transition: all 0.2s ease;
+}
+
+.closeButton:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+  color: var(--color-primary);
+  transform: scale(1.05);
+}
+
+.closeButton svg {
+  width: 24px;
+  height: 24px;
+  display: block;
+}
+
+/* Content layout modified for side-by-side display */
+.fileViewerContent {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.fileViewerMainContent {
+  flex: 1;
+  overflow: auto;
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-bg-secondary);
+}
+
+/* Loading states */
+.imageLoading, .metadataLoading, .folderLoading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem;
+  height: 100%;
+  width: 100%;
+}
+
+/* Image display */
+.imageContainer {
+  position: relative;
+  max-width: 100%;
+  max-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.imageViewer {
+  max-width: 100%;
+  max-height: 85vh;
+  object-fit: contain;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.textContainer {
+  padding: 20px;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background-color: var(--color-surface);
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.textLoading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+}
+
+.textContent {
+  white-space: pre-wrap;
+  font-family: monospace;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  overflow-x: auto;
+  tab-size: 4;
+  padding: 10px;
+  margin: 0;
+  max-height: 500px;
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  border-radius: 4px;
+}
+
+.textContent::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.textContent::-webkit-scrollbar-thumb {
+  background-color: var(--color-border);
+  border-radius: 4px;
+}
+
+.textContent::-webkit-scrollbar-track {
+  background-color: var(--color-bg-secondary);
+}
+
+/* Folder display */
+.folderContainer {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+}
+
+.folderFileList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Updated folder file item with actions */
+.folderFileItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  background-color: var(--color-surface);
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.folderFileItem:hover {
+  background-color: var(--color-surface-hover, #f5f5f5);
+}
+
+.folderFileInfo {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+
+.folderFileIcon {
+  margin-right: 12px;
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+
+.folderFileName {
+  flex: 1;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-right: 12px;
+}
+
+.folderFileSize {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.folderFileActions {
+  display: flex;
+  gap: 8px;
+}
+
+.folderFileDownload, .folderFileOpen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  color: var(--color-text-secondary);
+  background: rgba(0, 0, 0, 0.05);
+  transition: all 0.2s;
+}
+
+.folderFileDownload:hover, .folderFileOpen:hover {
+  background: var(--color-primary-light, rgba(0, 0, 0, 0.1));
+  color: var(--color-primary);
+  transform: scale(1.05);
+}
+
+.folderLoading, .folderError, .folderEmpty {
+  padding: 40px;
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+
+.folderError {
+  color: var(--color-error);
+}
+
+/* File metadata - now on the right side */
+.fileMetadata {
+  width: 320px;
+  padding: 20px;
+  background-color: var(--color-surface-light);
+  border-left: 1px solid var(--color-border);
+  overflow-y: auto;
+}
+
+.fileMetadata h4 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.metadataGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.metadataItem {
+  display: flex;
+  flex-direction: column;
+}
+
+.metadataLabel {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  margin-bottom: 4px;
+}
+
+.metadataValue {
+  font-size: 0.9rem;
+  word-break: break-word;
+}
+
+/* Generic file preview */
+.filePreview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  text-align: center;
+}
+
+.fileIcon {
+  width: 80px;
+  height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-primary);
+  color: white;
+  font-weight: bold;
+  border-radius: 4px;
+  margin-bottom: 16px;
+  font-size: 1.2rem;
+}
+
+/* Responsive styles */
+@media (max-width: 900px) {
+  .fileViewerContent {
+    flex-direction: column;
+  }
+
+  .fileMetadata {
+    width: 100%;
+    border-left: none;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .fileViewerHeader {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .fileViewerActions {
+    margin-top: 12px;
+    align-self: flex-end;
+  }
+}

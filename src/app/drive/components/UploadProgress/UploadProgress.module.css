@@ -1,0 +1,43 @@
+.progressBar {
+  margin: 20px 0;
+  background-color: var(--color-surface);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.progressBarInner {
+  height: 10px;
+  background-color: var(--color-primary);
+  transition: width 0.3s ease;
+}
+
+.progressInfo {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9rem;
+  margin-top: 8px;
+  color: var(--color-text-secondary);
+}
+
+.progressStatus {
+  font-weight: 500;
+}
+
+.progressDetails {
+  margin-bottom: 16px;
+  padding: 16px;
+  background-color: var(--color-surface);
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.progressMessage {
+  margin: 0 0 12px 0;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.progressContainer {
+  margin-bottom: 20px;
+}

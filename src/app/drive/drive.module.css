@@ -1,0 +1,642 @@
+/**
+ * Drive Page Styles
+ * Styling for the blockchain drive page and its components
+ */
+
+/* ---------- Network Indicator ---------- */
+.networkIndicator {
+  display: inline-flex;
+  align-items: center;
+  background-color: var(--color-surface-light);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-full);
+  padding: var(--space-xs) var(--space-md);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-md);
+}
+
+.networkIcon {
+  color: var(--color-primary);
+  margin-right: var(--space-xs);
+}
+
+.networkLabel {
+  font-weight: var(--font-weight-medium);
+}
+
+/* ---------- Search Container ---------- */
+.searchContainer {
+  margin-bottom: var(--space-lg);
+  width: 100%;
+}
+
+.searchInputWrapper {
+  position: relative;
+  width: 100%;
+}
+
+.searchIcon {
+  position: absolute;
+  left: var(--space-md);
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-text-secondary);
+  pointer-events: none;
+}
+
+.searchInput {
+  width: 100%;
+  padding: var(--space-md);
+  padding-left: calc(var(--space-md) * 2 + 1em);
+  font-size: var(--font-size-md);
+  color: var(--color-text);
+  background-color: var(--color-surface-light);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-md);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.searchInput:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb), 0.2);
+}
+
+/* ---------- File List Container ---------- */
+.fileListContainer {
+  margin-bottom: var(--space-xl);
+}
+
+/* ---------- File Table Styling ---------- */
+.fileTable {
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  background-color: var(--color-surface-light);
+  width: 100%;
+}
+
+.fileTableHeader {
+  grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+  gap: var(--space-sm);
+  background-color: var(--color-surface-dark);
+  padding: var(--space-sm) var(--space-md);
+  font-weight: var(--font-weight-semibold);
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+.fileTableRow {
+  grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--color-border);
+  align-items: center;
+  transition: background-color var(--transition-fast);
+}
+
+.fileTableRow:hover {
+  background-color: var(--color-bg-hover);
+}
+
+.fileTableRow:last-child {
+  border-bottom: none;
+}
+
+/* ---------- File Item Styling ---------- */
+.fileName {
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.folderIcon {
+  color: var(--color-accent);
+  margin-right: var(--space-xs);
+  flex-shrink: 0;
+}
+
+.fileType {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.metadataCell {
+  display: flex;
+  align-items: center;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.loadingText {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  color: var(--color-text-tertiary);
+  font-style: italic;
+}
+
+.loadingIcon {
+  animation: spin 1s linear infinite;
+}
+
+.metadataInfo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.metadataBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background-color: var(--color-bg-light);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-full);
+  padding: 1px var(--space-xs);
+  font-size: var(--font-size-xs);
+}
+
+.noMetadata {
+  color: var(--color-text-tertiary);
+}
+
+.publicIcon {
+  color: var(--color-success);
+  margin-left: var(--space-xs);
+}
+
+.rowActions {
+  display: flex;
+  gap: var(--space-xs);
+  justify-content: flex-end;
+}
+
+/* ---------- Upload Options Panel ---------- */
+.uploadOptionsPanel {
+  background-color: var(--color-surface-light);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-lg);
+  padding: var(--space-md);
+  margin-bottom: var(--space-lg);
+  box-shadow: var(--shadow-md);
+  animation: slideDown 0.3s ease-out;
+}
+
+.uploadOptionsPanelHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-md);
+  padding-bottom: var(--space-sm);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.uploadOptionsPanelHeader h3 {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-medium);
+}
+
+.closeButton {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--border-radius-full);
+  transition: all var(--transition-fast);
+}
+
+.closeButton:hover {
+  background-color: var(--color-bg-hover);
+  color: var(--color-error);
+}
+
+.uploadOption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-md);
+}
+
+.uploadOptionLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  color: var(--color-text);
+  font-weight: var(--font-weight-medium);
+}
+
+.uploadOptionLabel svg {
+  color: var(--color-primary);
+}
+
+/* ---------- Network Selector ---------- */
+.networkSelector {
+  display: flex;
+  border-radius: var(--border-radius-md);
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+}
+
+.networkButton {
+  border: none;
+  background: var(--color-surface-light);
+  padding: var(--space-xs) var(--space-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  font-size: var(--font-size-sm);
+  min-width: 80px;
+}
+
+.networkButton:hover {
+  background: var(--color-bg-hover);
+}
+
+.networkActive {
+  background: var(--color-primary);
+  color: white;
+}
+
+.networkActive:hover {
+  background: var(--color-primary-dark);
+}
+
+/* ---------- Toggle Switch ---------- */
+.toggleSwitch {
+  position: relative;
+  display: inline-block;
+  width: 46px;
+  height: 24px;
+}
+
+.toggleSwitch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggleSlider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--color-bg-hover);
+  border: 1px solid var(--color-border);
+  transition: .4s;
+  border-radius: 34px;
+}
+
+.toggleSlider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 2px;
+  background-color: white;
+  transition: .4s;
+  border-radius: 50%;
+}
+
+input:checked + .toggleSlider {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+input:focus + .toggleSlider {
+  box-shadow: 0 0 1px var(--color-primary);
+}
+
+input:checked + .toggleSlider:before {
+  transform: translateX(21px);
+}
+
+/* ---------- Password Input ---------- */
+.passwordInputContainer {
+  position: relative;
+  width: 100%;
+  max-width: 250px;
+}
+
+.passwordInput {
+  width: 100%;
+  padding: var(--space-sm) var(--space-md);
+  padding-right: calc(var(--space-md) + 24px);
+  border-radius: var(--border-radius-md);
+  border: 1px solid var(--color-border);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.passwordInput:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb), 0.2);
+  outline: none;
+}
+
+.clearPasswordButton {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--border-radius-full);
+}
+
+.clearPasswordButton:hover {
+  background-color: var(--color-bg-hover);
+  color: var(--color-error);
+}
+
+/* ---------- Options Note ---------- */
+.optionsNote {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+  background-color: rgba(var(--color-warning-rgb), 0.1);
+  border-radius: var(--border-radius-md);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.noteIcon {
+  color: var(--color-warning);
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+/* ---------- Upload Progress ---------- */
+.uploadProgressContainer {
+  margin-bottom: var(--space-lg);
+  padding: var(--space-md);
+  background-color: var(--color-surface-light);
+  border-radius: var(--border-radius-md);
+  border: 1px solid var(--color-border);
+  animation: slideDown 0.3s ease-out;
+}
+
+.uploadProgressInfo {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: var(--space-xs);
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+}
+
+.uploadProgressBar {
+  height: 8px;
+  background-color: var(--color-bg-hover);
+  border-radius: var(--border-radius-full);
+  overflow: hidden;
+}
+
+.uploadProgressFill {
+  height: 100%;
+  background-color: var(--color-primary);
+  border-radius: var(--border-radius-full);
+  transition: width 0.3s ease;
+}
+
+/* ---------- Share Modal ---------- */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.modal {
+  background-color: var(--color-surface);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-lg);
+  width: 90%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow: auto;
+  animation: scaleIn 0.2s ease-out;
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.modalHeader h3 {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-medium);
+}
+
+.modalContent {
+  padding: var(--space-lg);
+}
+
+.modalFooter {
+  padding: var(--space-md) var(--space-lg);
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-md);
+}
+
+/* ---------- Share Modal Content ---------- */
+.sharingStatus {
+  text-align: center;
+  padding: var(--space-md) 0;
+  color: var(--color-text-secondary);
+}
+
+.publicUrlContainer {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.shareMessage {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.shareIcon {
+  color: var(--color-primary);
+}
+
+.urlContainer {
+  display: flex;
+  margin-bottom: var(--space-md);
+}
+
+.publicUrlInput {
+  flex: 1;
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--color-border);
+  border-right: none;
+  border-top-left-radius: var(--border-radius-md);
+  border-bottom-left-radius: var(--border-radius-md);
+  background-color: var(--color-surface-light);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-family: var(--font-family-mono);
+}
+
+.publicNoteText {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin-top: var(--space-sm);
+}
+
+.shareError {
+  color: var(--color-error);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+/* ---------- File Viewer Modal ---------- */
+.fileViewerOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.fileViewerModal {
+  background-color: var(--color-surface);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-lg);
+  width: 90%;
+  max-width: 1200px;
+  height: 90vh;
+  max-height: 900px;
+  overflow: hidden;
+  animation: scaleIn 0.2s ease-out;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------- Pagination ---------- */
+.loadMoreContainer {
+  display: flex;
+  justify-content: center;
+  margin: var(--space-md) 0;
+}
+
+.loadingMore {
+  margin: var(--space-md) 0;
+  text-align: center;
+}
+
+/* ---------- Animations ---------- */
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* ---------- Responsive Adjustments ---------- */
+@media (max-width: 768px) {
+  .fileTableHeader,
+  .fileTableRow {
+    grid-template-columns: 2fr 1fr 1fr auto;
+  }
+
+  .fileTableHeader > div:nth-child(4),
+  .fileTableRow > div:nth-child(4) {
+    display: none;
+  }
+
+  .uploadOptionsPanel {
+    padding: var(--space-sm);
+  }
+
+  .passwordInputContainer {
+    max-width: 100%;
+  }
+
+  .modal {
+    width: 95%;
+    max-width: 90vw;
+  }
+}
+
+@media (max-width: 480px) {
+  .fileTableHeader,
+  .fileTableRow {
+    grid-template-columns: 2fr 1fr auto;
+  }
+
+  .fileTableHeader > div:nth-child(3),
+  .fileTableRow > div:nth-child(3) {
+    display: none;
+  }
+
+  .rowActions {
+    flex-wrap: wrap;
+  }
+
+  .urlContainer {
+    flex-direction: column;
+  }
+
+  .publicUrlInput {
+    border-right: 1px solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    margin-bottom: var(--space-xs);
+  }
+}

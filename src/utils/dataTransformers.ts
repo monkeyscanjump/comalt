@@ -1,4 +1,4 @@
-import type { SystemInfo } from '@/types/systemInfo';
+import type { SystemInfo, SystemCpu } from '@/types/systemInfo';
 
 /**
  * Applies consistent formatting to system data
@@ -19,9 +19,15 @@ export function transformSystemData(data: any): SystemInfo {
     };
   }
 
-  // Ensure CPU speed has units
-  if (result.cpu?.speed && typeof result.cpu.speed === 'string' && !result.cpu.speed.includes('GHz')) {
-    result.cpu.speed = `${result.cpu.speed} GHz`;
+  // Handle CPU data - now supporting both single CPU and array of CPUs
+  if (result.cpu) {
+    if (Array.isArray(result.cpu)) {
+      // Handle array of CPUs
+      result.cpu = result.cpu.map(processCpuData);
+    } else {
+      // Handle single CPU object
+      result.cpu = processCpuData(result.cpu);
+    }
   }
 
   // Ensure disks have consistent formatting
@@ -58,6 +64,41 @@ export function transformSystemData(data: any): SystemInfo {
   }
 
   return result;
+}
+
+/**
+ * Helper function to process CPU data and ensure proper typing
+ */
+function processCpuData(cpu: any): SystemCpu {
+  if (!cpu) return {} as SystemCpu;
+
+  // Create a new object with properly typed values
+  return {
+    manufacturer: cpu.manufacturer || 'Unknown',
+    brand: cpu.brand || 'Unknown',
+    vendor: cpu.vendor || 'N/A',
+    family: cpu.family || 'N/A',
+    model: cpu.model || 'N/A',
+    // Ensure cores and physicalCores are numbers
+    cores: typeof cpu.cores === 'number' ? cpu.cores : (parseInt(String(cpu.cores || '0')) || 0),
+    physicalCores: typeof cpu.physicalCores === 'number' ? cpu.physicalCores :
+                  (parseInt(String(cpu.physicalCores || '0')) || 0),
+    // Ensure speed has GHz units if it's a number or doesn't already include it
+    speed: typeof cpu.speed === 'number' ?
+           `${cpu.speed} GHz` :
+           (typeof cpu.speed === 'string' && !cpu.speed.includes('GHz') ?
+            `${cpu.speed} GHz` : (cpu.speed || 'Unknown')),
+    // Include the cache if it exists
+    cache: cpu.cache ? {
+      l1d: cpu.cache.l1d || undefined,
+      l1i: cpu.cache.l1i || undefined,
+      l2: cpu.cache.l2 || undefined,
+      l3: cpu.cache.l3 || undefined,
+    } : undefined,
+    // Include socket if it exists
+    socket: typeof cpu.socket === 'number' ? cpu.socket :
+           (parseInt(String(cpu.socket || '1')) || 1)
+  };
 }
 
 /**
